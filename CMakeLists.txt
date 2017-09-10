@@ -88,6 +88,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/Downloads.cmake)
 
 # Add Genesis as dependency.
 add_subdirectory(${PROJECT_SOURCE_DIR}/genesis)
+add_subdirectory(${PROJECT_SOURCE_DIR}/stxxl)
 
 # Use everything that Genesis exports, just to be sure that we use the same setup.
 add_definitions( ${GENESIS_DEFINITIONS} )
@@ -98,6 +99,12 @@ set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GENESIS_EXE_LINKER_FLAG
 
 # Add Tclap as dependency. It's header-only, so this is easy.
 include_directories( "tclap/include" )
+
+# apply STXXL CXXFLAGS to our configuration
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STXXL_CXX_FLAGS}")
+
+# add STXXL includes path
+include_directories(${STXXL_INCLUDE_DIRS})
 
 # Genesis export the OpenMP variable. We use it to check and give advice in case it is not found.
 if( NOT OPENMP_FOUND )
@@ -119,3 +126,4 @@ add_executable( QuartetScores "src/QuartetScores.cpp" )
 
 # Link it against Genesis, and against all dependencies of Genesis.
 target_link_libraries ( QuartetScores ${GENESIS_LINK_LIBRARIES} )
+target_link_libraries(QuartetScore ${STXXL_LIBRARIES})
