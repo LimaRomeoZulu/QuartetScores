@@ -107,22 +107,22 @@ int main(int argc, char* argv[]) {
 	std::vector<double> eqpic;
 	size_t m = countEvalTrees(pathToEvaluationTrees);
 	if (m < (size_t(1) << 8)) {
-		QuartetScoreComputer<uint8_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem);
+		QuartetScoreComputer<uint8_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads);
 		lqic = qsc.getLQICScores();
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();
 	} else if (m < (size_t(1) << 16)) {
-		QuartetScoreComputer<uint16_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem);
+		QuartetScoreComputer<uint16_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads);
 		lqic = qsc.getLQICScores();
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();
 	} else if (m < (size_t(1) << 32)) {
-		QuartetScoreComputer<uint32_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem);
+		QuartetScoreComputer<uint32_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads);
 		lqic = qsc.getLQICScores();
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();
 	} else {
-		QuartetScoreComputer<uint64_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem);
+		QuartetScoreComputer<uint64_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads);
 		lqic = qsc.getLQICScores();
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();

@@ -9,6 +9,8 @@
 #include "quartet_lookup_table.hpp"
 #include <unordered_map>
 #include <cstdint>
+#include <stxxl/vector>
+#include <stxxl/parallel_sorter_synchron>
 
 using namespace genesis;
 using namespace tree;
@@ -17,6 +19,25 @@ using namespace std;
 
 #define CO(a,b,c,d) (a) * n_cube + (b) * n_square + (c) * n + (d)
 
+template <typename T>
+struct my_comparator
+{
+   bool operator () (const T& a, const T& b) const
+   {
+       return a < b;
+   }
+
+   T min_value() const
+   {
+       return std::numeric_limits<T>::min();
+   }
+
+   T max_value() const
+   {
+       return std::numeric_limits<T>::max();
+   }
+};
+
 /**
  * Let n be the number of taxa in the reference tree.
  * Count occurrences of quartet topologies in the set of evaluation trees using a O(n^4) lookup table with O(1) lookup cost.
@@ -24,19 +45,19 @@ using namespace std;
 template<typename CINT>
 class QuartetCounterLookup {
 public:
-	QuartetCounterLookup(const Tree &refTree, const std::string &evalTreesPath, size_t m, bool savemem);
+	QuartetCounterLookup(const Tree &refTree, const std::string &evalTreesPath, size_t m, bool savemem, int num_threads);
 	~QuartetCounterLookup() = default;
 	std::tuple<CINT, CINT, CINT> countQuartetOccurrences(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx) const;
 private:
 	void countQuartets(const std::string &evalTreesPath, size_t m,
 			const std::unordered_map<std::string, size_t> &taxonToReferenceID);
 	void updateQuartets(const Tree &tree, size_t nodeIdx, const std::vector<int> &eulerTourLeaves,
-			const std::vector<int> &linkToEulerLeafIndex);
+			const std::vector<int> &linkToEulerLeafIndex, int t);
 	void updateQuartetsThreeLinks(size_t link1, size_t link2, size_t link3, const Tree &tree,
-			const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex);
+			const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex, int t);
 	void updateQuartetsThreeClades(size_t startLeafIndexS1, size_t endLeafIndexS1, size_t startLeafIndexS2,
 			size_t endLeafIndexS2, size_t startLeafIndexS3, size_t endLeafIndexS3,
-			const std::vector<int> &eulerTourLeaves);
+			const std::vector<int> &eulerTourLeaves, int t);
 	std::pair<size_t, size_t> subtreeLeafIndices(size_t linkIdx, const Tree &tree,
 			const std::vector<int> &linkToEulerLeafIndex);
 
@@ -50,6 +71,9 @@ private:
 	size_t n_cube; /**> n*n*n */
 	std::vector<size_t> refIdToLookupID;
 	bool savemem; /**> trade speed for less memory or not */
+	void reduceSorter();
+	stxxl::parallel_sorter_synchron<CINT, my_comparator<CINT> > quartetSorter;
+	int nthread;
 };
 
 /**
@@ -65,7 +89,7 @@ private:
 template<typename CINT>
 void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndexS1, size_t endLeafIndexS1,
 		size_t startLeafIndexS2, size_t endLeafIndexS2, size_t startLeafIndexS3, size_t endLeafIndexS3,
-		const std::vector<int> &eulerTourLeaves) {
+		const std::vector<int> &eulerTourLeaves, int t) {
 	size_t aLeafIndex = startLeafIndexS1;
 	size_t bLeafIndex = startLeafIndexS2;
 	size_t cLeafIndex = startLeafIndexS3;
@@ -87,7 +111,9 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndex
 						tuple[tupleIdx]++;
 					} else {
 //#pragma omp atomic
-						lookupTableFast[CO(a, a2, b, c)]++;
+
+quartetSorter.push(CO(a,a2,b,c),t);						
+//lookupTableFast[CO(a, a2, b, c)]++;
 					}
 
 					cLeafIndex = (cLeafIndex + 1) % eulerTourLeaves.size();
@@ -133,7 +159,7 @@ std::pair<size_t, size_t> QuartetCounterLookup<CINT>::subtreeLeafIndices(size_t 
  */
 template<typename CINT>
 void QuartetCounterLookup<CINT>::updateQuartetsThreeLinks(size_t link1, size_t link2, size_t link3, const Tree &tree,
-		const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex) {
+		const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex, int t) {
 	std::pair<size_t, size_t> subtree1 = subtreeLeafIndices(link1, tree, linkToEulerLeafIndex);
 	std::pair<size_t, size_t> subtree2 = subtreeLeafIndices(link2, tree, linkToEulerLeafIndex);
 	std::pair<size_t, size_t> subtree3 = subtreeLeafIndices(link3, tree, linkToEulerLeafIndex);
@@ -146,11 +172,11 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeLinks(size_t link1, size_t l
 	size_t endLeafIndexS3 = subtree3.second % eulerTourLeaves.size();
 
 	updateQuartetsThreeClades(startLeafIndexS1, endLeafIndexS1, startLeafIndexS2, endLeafIndexS2, startLeafIndexS3,
-			endLeafIndexS3, eulerTourLeaves);
+			endLeafIndexS3, eulerTourLeaves, t);
 	updateQuartetsThreeClades(startLeafIndexS2, endLeafIndexS2, startLeafIndexS1, endLeafIndexS1, startLeafIndexS3,
-			endLeafIndexS3, eulerTourLeaves);
+			endLeafIndexS3, eulerTourLeaves, t);
 	updateQuartetsThreeClades(startLeafIndexS3, endLeafIndexS3, startLeafIndexS1, endLeafIndexS1, startLeafIndexS2,
-			endLeafIndexS2, eulerTourLeaves);
+			endLeafIndexS2, eulerTourLeaves, t);
 }
 
 /**
@@ -165,7 +191,7 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeLinks(size_t link1, size_t l
  */
 template<typename CINT>
 void QuartetCounterLookup<CINT>::updateQuartets(const Tree &tree, size_t nodeIdx,
-		const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex) {
+		const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex, int t) {
 	// get taxa from subtree clades at nodeIdx
 	std::vector<size_t> subtreeLinkIndices;
 	const TreeLink* actLinkPtr = &tree.node_at(nodeIdx).link();
@@ -181,7 +207,7 @@ void QuartetCounterLookup<CINT>::updateQuartets(const Tree &tree, size_t nodeIdx
 				size_t link1 = subtreeLinkIndices[i];
 				size_t link2 = subtreeLinkIndices[j];
 				size_t link3 = subtreeLinkIndices[k];
-				updateQuartetsThreeLinks(link1, link2, link3, tree, eulerTourLeaves, linkToEulerLeafIndex);
+				updateQuartetsThreeLinks(link1, link2, link3, tree, eulerTourLeaves, linkToEulerLeafIndex, t);
 			}
 		}
 	}
@@ -219,11 +245,14 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 			}
 			linkToEulerLeafIndex[it.link().index()] = eulerTourLeaves.size();
 		}
-
+			
+#pragma omp parallel num_threads(nthread)	
+	  {			
+	       int tid = omp_get_thread_num();
 #pragma omp parallel for schedule(dynamic)
 		for (size_t j = 0; j < nEval; ++j) {
 			if (!tree.node_at(j).is_leaf()) {
-				updateQuartets(tree, j, eulerTourLeaves, linkToEulerLeafIndex);
+				updateQuartets(tree, j, eulerTourLeaves, linkToEulerLeafIndex, tid);
 			}
 		}
 
@@ -231,10 +260,11 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 			std::cout << "Counting quartets... " << progress << "%" << std::endl;
 			progress++;
 		}
-
+		}
 		++itTree;
 		++i;
 	}
+	reduceSorter();
 }
 
 /**
@@ -244,10 +274,12 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
  */
 template<typename CINT>
 QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std::string &evalTreesPath, size_t m,
-		bool savemem) :
-		savemem(savemem) {
+		bool savemem,int num_threads) :
+		savemem(savemem),
+quartetSorter(my_comparator<CINT>(),static_cast<size_t>(1)<<34, num_threads) {
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
+	nthread = num_threads;	
 	n = 0;
 	for (auto it : eulertour(refTree)) {
 		if (it.node().is_leaf()) {
@@ -315,4 +347,26 @@ std::tuple<CINT, CINT, CINT> QuartetCounterLookup<CINT>::countQuartetOccurrences
 		CINT adBC = lookupQuartetCount(aIdx, dIdx, bIdx, cIdx);
 		return std::tuple<CINT, CINT, CINT>(abCD, acBD, adBC);
 	}
+}
+
+template<typename CINT>
+void QuartetCounterLookup<CINT>::reduceSorter() {
+	quartetSorter.sort();
+    size_t tmp = *quartetSorter;
+	int counter = 1;
+    while (!quartetSorter.empty())
+    {
+		//std::cout << *quartetSorter << "\n";
+        ++quartetSorter;
+		if(tmp == *quartetSorter){
+			counter++;
+		}
+		else{
+			lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
+			//std::cout << tmp << " Anzahl: " << counter << "\n";
+			counter = 1;
+		}
+    }
+	lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
+	quartetSorter.clear();
 }
