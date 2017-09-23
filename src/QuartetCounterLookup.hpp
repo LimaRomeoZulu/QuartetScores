@@ -17,6 +17,8 @@ using namespace tree;
 using namespace utils;
 using namespace std;
 
+template class std::vector<size_t>;
+
 #define CO(a,b,c,d) (a) * n_cube + (b) * n_square + (c) * n + (d)
 
 template <typename T>
@@ -63,7 +65,7 @@ private:
 
 	CINT lookupQuartetCount(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx) const;
 
-	std::vector<CINT> lookupTableFast; /**> larger O(n^4) lookup table storing the count of each quartet topology */
+	std::vector<size_t> lookupTableFast; /**> larger O(n^4) lookup table storing the count of each quartet topology */
 	QuartetLookupTable<CINT> lookupTable; /**> smaller O(n^4) lookup table storing the count of each quartet topology */
 
 	size_t n; /**> number of taxa in the reference tree */
@@ -72,7 +74,7 @@ private:
 	std::vector<size_t> refIdToLookupID;
 	bool savemem; /**> trade speed for less memory or not */
 	void reduceSorter();
-	stxxl::parallel_sorter_synchron<CINT, my_comparator<CINT> > quartetSorter;
+	stxxl::parallel_sorter_synchron<size_t, my_comparator<size_t> > quartetSorter;
 	int nthread;
 };
 
@@ -276,7 +278,7 @@ template<typename CINT>
 QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std::string &evalTreesPath, size_t m,
 		bool savemem,int num_threads) :
 		savemem(savemem),
-quartetSorter(my_comparator<CINT>(),static_cast<size_t>(1)<<34, num_threads) {
+quartetSorter(my_comparator<size_t>(),static_cast<size_t>(1)<<32, num_threads) {
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
 	nthread = num_threads;	
@@ -365,6 +367,7 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 			lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
 			//std::cout << tmp << " Anzahl: " << counter << "\n";
 			counter = 1;
+			tmp = *quartetSorter;
 		}
     }
 	lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
