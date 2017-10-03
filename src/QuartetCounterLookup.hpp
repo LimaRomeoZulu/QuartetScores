@@ -232,6 +232,15 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 	utils::InputStream instream(utils::make_unique<utils::FileInputSource>(evalTreesPath));
 	auto itTree = NewickInputIterator(instream, DefaultTreeNewickReader());
 	size_t i = 0;
+	
+	std::ofstream io_stats;
+	stxxl::stats* Stats = stxxl::stats::get_instance();
+	
+	io_stats.open("io_stats", std::ios_base::app);
+	io_stats << "Write Time, Number of Writes, Written Volume" << std::endl;
+
+	stxxl::stats_data stats_begin(*Stats);
+
 	while (itTree) { // iterate over the set of evaluation trees
 		Tree const& tree = *itTree;
 
@@ -266,13 +275,19 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		}
 		}
 		
-		if(i%500 == 0){
+		if((i!=0) && (i%500 == 0)){
 			reduceSorter();
 		}
 		++itTree;
 		++i;
 	}
 	reduceSorter();
+	
+	stxxl::stats_data stats_end(*Stats);
+	io_stats << (stats_end - stats_begin).get_write_time() << "," << (stats_end - stats_begin).get_writes() << "," << (stats_end - stats_begin).get_written_volume ()<< std::endl; // print i/o statistics        
+		
+	std::cout << (stxxl::stats_data(*Stats) - stats_begin); // print i/o statistics
+	io_stats.close();
 }
 
 /**
