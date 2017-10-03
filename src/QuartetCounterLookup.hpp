@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <stxxl/vector>
 #include <stxxl/parallel_sorter_synchron>
+//#include <stxxl/sorter>
 
 using namespace genesis;
 using namespace tree;
@@ -74,7 +75,7 @@ private:
 	std::vector<size_t> refIdToLookupID;
 	bool savemem; /**> trade speed for less memory or not */
 	void reduceSorter();
-	stxxl::parallel_sorter_synchron<size_t, my_comparator<size_t> > quartetSorter;
+	stxxl::parallel_sorter_synchron<CINT, my_comparator<CINT> > quartetSorter;
 	int nthread;
 };
 
@@ -115,6 +116,7 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndex
 //#pragma omp atomic
 
 quartetSorter.push(CO(a,a2,b,c),t);						
+//quartetSorter.push(CO(a,a2,b,c));	
 //lookupTableFast[CO(a, a2, b, c)]++;
 					}
 
@@ -263,6 +265,10 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 			progress++;
 		}
 		}
+		
+		if(i%500 == 0){
+			reduceSorter();
+		}
 		++itTree;
 		++i;
 	}
@@ -278,7 +284,8 @@ template<typename CINT>
 QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std::string &evalTreesPath, size_t m,
 		bool savemem,int num_threads) :
 		savemem(savemem),
-quartetSorter(my_comparator<size_t>(),static_cast<size_t>(1)<<32, num_threads) {
+quartetSorter(my_comparator<CINT>(),static_cast<size_t>(1)<<35, num_threads) {
+//quartetSorter(my_comparator<size_t>(),static_cast<size_t>(1)<<32) {
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
 	nthread = num_threads;	
@@ -355,11 +362,10 @@ template<typename CINT>
 void QuartetCounterLookup<CINT>::reduceSorter() {
 	quartetSorter.sort();
     size_t tmp = *quartetSorter;
-	int counter = 1;
-    while (!quartetSorter.empty())
+	int counter = 0;
+    for(;!quartetSorter.empty();++quartetSorter)
     {
 		//std::cout << *quartetSorter << "\n";
-        ++quartetSorter;
 		if(tmp == *quartetSorter){
 			counter++;
 		}
