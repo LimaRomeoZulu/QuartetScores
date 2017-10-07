@@ -262,7 +262,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 #pragma omp parallel num_threads(nthread)	
 	  {			
 	       int tid = omp_get_thread_num();
-#pragma omp parallel for schedule(dynamic)
+#pragma omp for schedule(dynamic)
 		for (size_t j = 0; j < nEval; ++j) {
 			if (!tree.node_at(j).is_leaf()) {
 				updateQuartets(tree, j, eulerTourLeaves, linkToEulerLeafIndex, tid);
