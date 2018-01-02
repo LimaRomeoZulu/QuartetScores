@@ -75,7 +75,7 @@ private:
 	std::vector<size_t> refIdToLookupID;
 	bool savemem; /**> trade speed for less memory or not */
 	void reduceSorter();
-	stxxl::parallel_sorter_synchron<CINT, my_comparator<CINT> > quartetSorter;
+	stxxl::parallel_sorter_synchron<uint64_t, my_comparator<uint64_t> > quartetSorter;
 	int nthread;
 };
 
@@ -115,7 +115,8 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndex
 					} else {
 //#pragma omp atomic
 
-quartetSorter.push(CO(a,a2,b,c),t);						
+size_t tmp = CO(a, a2, b, c);
+quartetSorter.push(tmp,t);						
 //quartetSorter.push(CO(a,a2,b,c));	
 //lookupTableFast[CO(a, a2, b, c)]++;
 					}
@@ -234,6 +235,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 	size_t i = 0;
 	
 	std::ofstream io_stats;
+
 	stxxl::stats* Stats = stxxl::stats::get_instance();
 	
 	io_stats.open("io_stats", std::ios_base::app);
@@ -276,7 +278,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		}
 		
 		if((i!=0) && (i%500 == 0)){
-			reduceSorter();
+			//reduceSorter();
 		}
 		++itTree;
 		++i;
@@ -288,6 +290,12 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		
 	std::cout << (stxxl::stats_data(*Stats) - stats_begin); // print i/o statistics
 	io_stats.close();
+        std::ofstream outputfile;
+        outputfile.open("output_Scores.csv");
+        for(size_t i = 0; i < lookupTableFast.size(); i++){
+                outputfile << i << "," << lookupTableFast[i] << std::endl;
+        }
+        outputfile.close();
 }
 
 /**
@@ -299,7 +307,7 @@ template<typename CINT>
 QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std::string &evalTreesPath, size_t m,
 		bool savemem,int num_threads) :
 		savemem(savemem),
-quartetSorter(my_comparator<CINT>(),static_cast<size_t>(1)<<35, num_threads) {
+quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<30, num_threads) {
 //quartetSorter(my_comparator<size_t>(),static_cast<size_t>(1)<<32) {
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
