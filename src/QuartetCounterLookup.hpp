@@ -277,8 +277,8 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		}
 		}
 		
-		if((i!=0) && (i%500 == 0)){
-			//reduceSorter();
+		if((i!=0) && (i%50 == 0)){
+			reduceSorter();
 		}
 		++itTree;
 		++i;
@@ -286,16 +286,16 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 	reduceSorter();
 	
 	stxxl::stats_data stats_end(*Stats);
-	io_stats << (stats_end - stats_begin).get_write_time() << "," << (stats_end - stats_begin).get_writes() << "," << (stats_end - stats_begin).get_written_volume ()<< std::endl; // print i/o statistics        
+	//io_stats << (stats_end - stats_begin).get_write_time() << "," << (stats_end - stats_begin).get_writes() << "," << (stats_end - stats_begin).get_written_volume ()<< std::endl; // print i/o statistics        
 		
 	std::cout << (stxxl::stats_data(*Stats) - stats_begin); // print i/o statistics
-	io_stats.close();
-        std::ofstream outputfile;
-        outputfile.open("output_Scores.csv");
-        for(size_t i = 0; i < lookupTableFast.size(); i++){
-                outputfile << i << "," << lookupTableFast[i] << std::endl;
-        }
-        outputfile.close();
+	//io_stats.close();
+        //std::ofstream outputfile;
+        //outputfile.open("output_Scores.csv");
+        //for(size_t i = 0; i < lookupTableFast.size(); i++){
+               // outputfile << i << "," << lookupTableFast[i] << std::endl;
+        //}
+        //outputfile.close();
 }
 
 /**
@@ -307,7 +307,7 @@ template<typename CINT>
 QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std::string &evalTreesPath, size_t m,
 		bool savemem,int num_threads) :
 		savemem(savemem),
-quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<30, num_threads) {
+quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<32, num_threads) {
 //quartetSorter(my_comparator<size_t>(),static_cast<size_t>(1)<<32) {
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
@@ -383,8 +383,14 @@ std::tuple<CINT, CINT, CINT> QuartetCounterLookup<CINT>::countQuartetOccurrences
 
 template<typename CINT>
 void QuartetCounterLookup<CINT>::reduceSorter() {
+	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 	quartetSorter.sort();
-    size_t tmp = *quartetSorter;
+	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+	std::cout << "Sorting took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " microseconds." << std::endl;
+
+	begin = std::chrono::steady_clock::now();
+
+    	size_t tmp = *quartetSorter;
 	int counter = 0;
     for(;!quartetSorter.empty();++quartetSorter)
     {
@@ -401,4 +407,7 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
     }
 	lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
 	quartetSorter.clear();
+	
+	end = std::chrono::steady_clock::now();
+	std::cout << "reduceSorter took: " << std::chrono::duration_cast<std::chrono::microseconds>(e    nd - begin).count()<< " microseconds." << std::endl;
 }
