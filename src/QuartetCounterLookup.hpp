@@ -66,7 +66,7 @@ private:
 
 	CINT lookupQuartetCount(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx) const;
 
-	std::vector<size_t> lookupTableFast; /**> larger O(n^4) lookup table storing the count of each quartet topology */
+	std::vector<CINT> lookupTableFast; /**> larger O(n^4) lookup table storing the count of each quartet topology */
 	QuartetLookupTable<CINT> lookupTable; /**> smaller O(n^4) lookup table storing the count of each quartet topology */
 
 	size_t n; /**> number of taxa in the reference tree */
@@ -115,9 +115,9 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndex
 					} else {
 //#pragma omp atomic
 
-size_t tmp = CO(a, a2, b, c);
-quartetSorter.push(tmp,t);						
-//quartetSorter.push(CO(a,a2,b,c));	
+//size_t tmp = CO(a, a2, b, c);
+//quartetSorter.push(tmp,t);						
+quartetSorter.push(CO(a,a2,b,c),t);	
 //lookupTableFast[CO(a, a2, b, c)]++;
 					}
 
@@ -277,7 +277,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		}
 		}
 		
-		if((i!=0) && (i%50 == 0)){
+		if((i!=0) && (i%250 == 0)){
 			reduceSorter();
 		}
 		++itTree;
@@ -409,5 +409,5 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 	quartetSorter.clear();
 	
 	end = std::chrono::steady_clock::now();
-	std::cout << "reduceSorter took: " << std::chrono::duration_cast<std::chrono::microseconds>(e    nd - begin).count()<< " microseconds." << std::endl;
+	std::cout << "reduceSorter took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " microseconds." << std::endl;
 }
