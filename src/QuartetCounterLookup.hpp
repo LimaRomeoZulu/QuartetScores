@@ -117,7 +117,8 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndex
 
 //size_t tmp = CO(a, a2, b, c);
 //quartetSorter.push(tmp,t);						
-quartetSorter.push(CO(a,a2,b,c),t);	
+size_t tmp = CO(a,a2,b,c);
+quartetSorter.push(tmp,t);	
 //lookupTableFast[CO(a, a2, b, c)]++;
 					}
 
@@ -233,7 +234,9 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 	utils::InputStream instream(utils::make_unique<utils::FileInputSource>(evalTreesPath));
 	auto itTree = NewickInputIterator(instream, DefaultTreeNewickReader());
 	size_t i = 0;
-	
+	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+	std::chrono::steady_clock::time_point end;	
+
 	std::ofstream io_stats;
 
 	stxxl::stats* Stats = stxxl::stats::get_instance();
@@ -278,7 +281,11 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		}
 		
 		if((i!=0) && (i%250 == 0)){
+			//end = std::chrono::steady_clock::now();
+			//std::cout << "Counting took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " microseconds." << std::endl;
 			reduceSorter();
+			//begin = std::chrono::steady_clock::now();
+
 		}
 		++itTree;
 		++i;
@@ -293,7 +300,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
         //std::ofstream outputfile;
         //outputfile.open("output_Scores.csv");
         //for(size_t i = 0; i < lookupTableFast.size(); i++){
-               // outputfile << i << "," << lookupTableFast[i] << std::endl;
+                //outputfile << i << "," << lookupTableFast[i] << std::endl;
         //}
         //outputfile.close();
 }
@@ -307,7 +314,7 @@ template<typename CINT>
 QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std::string &evalTreesPath, size_t m,
 		bool savemem,int num_threads) :
 		savemem(savemem),
-quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<32, num_threads) {
+quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<34, num_threads) {
 //quartetSorter(my_comparator<size_t>(),static_cast<size_t>(1)<<32) {
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
@@ -394,13 +401,11 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 	int counter = 0;
     for(;!quartetSorter.empty();++quartetSorter)
     {
-		//std::cout << *quartetSorter << "\n";
 		if(tmp == *quartetSorter){
 			counter++;
 		}
 		else{
 			lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
-			//std::cout << tmp << " Anzahl: " << counter << "\n";
 			counter = 1;
 			tmp = *quartetSorter;
 		}
