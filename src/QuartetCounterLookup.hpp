@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <stxxl/vector>
 #include <stxxl/parallel_sorter_synchron>
+#include "easylogging++.h"
 //#include <stxxl/sorter>
 
 using namespace genesis;
@@ -48,7 +49,7 @@ struct my_comparator
 template<typename CINT>
 class QuartetCounterLookup {
 public:
-	QuartetCounterLookup(const Tree &refTree, const std::string &evalTreesPath, size_t m, bool savemem, int num_threads);
+	QuartetCounterLookup(const Tree &refTree, const std::string &evalTreesPath, size_t m, bool savemem, int num_threads, int internalMemory);
 	~QuartetCounterLookup() = default;
 	std::tuple<CINT, CINT, CINT> countQuartetOccurrences(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx) const;
 private:
@@ -237,16 +238,14 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 	std::chrono::steady_clock::time_point end;	
 
-	std::ofstream io_stats;
 
 	stxxl::stats* Stats = stxxl::stats::get_instance();
 	
-	io_stats.open("io_stats", std::ios_base::app);
-	io_stats << "Write Time, Number of Writes, Written Volume" << std::endl;
-
 	stxxl::stats_data stats_begin(*Stats);
 
 	while (itTree) { // iterate over the set of evaluation trees
+		TIMED_BLOCK(timerObj, "while(itTree)_time"){
+		
 		Tree const& tree = *itTree;
 
 		size_t nEval = tree.node_count();
@@ -279,7 +278,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 			progress++;
 		}
 		}
-		
+		};
 		if((i!=0) && (i%250 == 0)){
 			//end = std::chrono::steady_clock::now();
 			//std::cout << "Counting took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " microseconds." << std::endl;
@@ -293,14 +292,14 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 	reduceSorter();
 	
 	stxxl::stats_data stats_end(*Stats);
-	//io_stats << (stats_end - stats_begin).get_write_time() << "," << (stats_end - stats_begin).get_writes() << "," << (stats_end - stats_begin).get_written_volume ()<< std::endl; // print i/o statistics        
+	LOG(INFO) << "[run_volumeWritten] [" << (stats_end - stats_begin).get_written_volume ()<< " bytes]"; 
 		
 	std::cout << (stxxl::stats_data(*Stats) - stats_begin); // print i/o statistics
 	//io_stats.close();
         //std::ofstream outputfile;
         //outputfile.open("output_Scores.csv");
         //for(size_t i = 0; i < lookupTableFast.size(); i++){
-                //outputfile << i << "," << lookupTableFast[i] << std::endl;
+          //      outputfile << i << "," << lookupTableFast[i] << std::endl;
         //}
         //outputfile.close();
 }
@@ -312,14 +311,16 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
  */
 template<typename CINT>
 QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std::string &evalTreesPath, size_t m,
-		bool savemem,int num_threads) :
+		bool savemem,int num_threads, int internalMemory) :
 		savemem(savemem),
-quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<34, num_threads) {
+quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, num_threads) {
 //quartetSorter(my_comparator<size_t>(),static_cast<size_t>(1)<<32) {
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
 	nthread = num_threads;	
 	n = 0;
+	TIMED_BLOCK(timerObj, "QuartetCounterLookup_time"){
+
 	for (auto it : eulertour(refTree)) {
 		if (it.node().is_leaf()) {
 			taxonToReferenceID[it.node().data<DefaultNodeData>().name] = it.node().index();
@@ -341,6 +342,7 @@ quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<34, num_threads)
 	} else {
 		std::cout << "lookup table size in bytes: " << lookupTableFast.size() * sizeof(CINT) << "\n";
 	}
+	};
 }
 
 /**
@@ -390,15 +392,13 @@ std::tuple<CINT, CINT, CINT> QuartetCounterLookup<CINT>::countQuartetOccurrences
 
 template<typename CINT>
 void QuartetCounterLookup<CINT>::reduceSorter() {
-	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-	quartetSorter.sort();
-	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-	std::cout << "Sorting took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " microseconds." << std::endl;
+	TIMED_BLOCK(obj_s, "sorting_time"){
+		quartetSorter.sort();
+	}
 
-	begin = std::chrono::steady_clock::now();
-
+	TIMED_BLOCK(obj_r, "readSorter_time"){
     	size_t tmp = *quartetSorter;
-	int counter = 0;
+	CINT counter = 0;
     for(;!quartetSorter.empty();++quartetSorter)
     {
 		if(tmp == *quartetSorter){
@@ -412,7 +412,5 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
     }
 	lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
 	quartetSorter.clear();
-	
-	end = std::chrono::steady_clock::now();
-	std::cout << "reduceSorter took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " microseconds." << std::endl;
+	}
 }

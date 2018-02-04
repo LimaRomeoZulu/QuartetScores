@@ -2,6 +2,7 @@
 #include "quartet_newick_writer.hpp"
 #include "QuartetScoreComputer.hpp"
 #include "tclap/CmdLine.h" // command line parser, downloaded from http://tclap.sourceforge.net/
+#include "easylogging++.h"
 
 #include <chrono>
 #include <fstream>
@@ -16,6 +17,8 @@
 
 using namespace genesis;
 using namespace tree;
+
+INITIALIZE_EASYLOGGINGPP
 
 /**
  * Count the number of evaluation trees.
@@ -44,8 +47,13 @@ int main(int argc, char* argv[]) {
 	std::string pathToEvaluationTrees;
 	std::string outputFilePath;
 	size_t nThreads = 0;
-	std::ofstream outfile;
-  	outfile.open("output_QuartetScores.csv", std::ios_base::app);
+	int internalMemory = 33;
+
+    // Load configuration from file
+    el::Configurations conf("../logging.conf");
+    // Actually reconfigure all loggers
+    el::Loggers::reconfigureAllLoggers(conf);
+LOG(INFO) << "My first info log using default logger";
 
 	try {
 		TCLAP::CmdLine cmd("Compute quartet scores", ' ', "1.0");
@@ -53,11 +61,13 @@ int main(int argc, char* argv[]) {
 		TCLAP::ValueArg<std::string> evalArg("e", "eval", "Path to the evaluation trees", true, "", "string");
 		TCLAP::ValueArg<std::string> outputArg("o", "output", "Path to the output file", true, "", "string");
 		TCLAP::ValueArg<size_t> threadsArg("t", "threads", "Maximum number of threads to use", false, 0, "uint");
+		TCLAP::ValueArg<int> intMemArg("i", "internal", "Internal memory to use for external structure", false, 33, "uint");
 		TCLAP::SwitchArg verboseArg("v", "verbose", "Verbose mode", false);
 		TCLAP::SwitchArg savememArg("s", "savemem", "Consume less memory, but with the cost of increased runtime", false);
 		cmd.add(refArg);
 		cmd.add(evalArg);
 		cmd.add(outputArg);
+		cmd.add(intMemArg);
 		cmd.add(threadsArg);
 		cmd.add(verboseArg);
 		cmd.add(savememArg);
@@ -67,6 +77,7 @@ int main(int argc, char* argv[]) {
 		pathToEvaluationTrees = evalArg.getValue();
 		outputFilePath = outputArg.getValue();
 		nThreads = threadsArg.getValue();
+		internalMemory = intMemArg.getValue();
 		verbose = verboseArg.getValue();
 		savemem = savememArg.getValue();
 	} catch (TCLAP::ArgException &e) // catch any exceptions
@@ -110,22 +121,22 @@ int main(int argc, char* argv[]) {
 	std::vector<double> eqpic;
 	size_t m = countEvalTrees(pathToEvaluationTrees);
 	if (m < (size_t(1) << 8)) {
-		QuartetScoreComputer<uint8_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads);
+		QuartetScoreComputer<uint8_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads, internalMemory);
 		lqic = qsc.getLQICScores();
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();
 	} else if (m < (size_t(1) << 16)) {
-		QuartetScoreComputer<uint16_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads);
+		QuartetScoreComputer<uint16_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads, internalMemory);
 		lqic = qsc.getLQICScores();
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();
 	} else if (m < (size_t(1) << 32)) {
-		QuartetScoreComputer<uint32_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads);
+		QuartetScoreComputer<uint32_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads, internalMemory);
 		lqic = qsc.getLQICScores();
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();
 	} else {
-		QuartetScoreComputer<uint64_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads);
+		QuartetScoreComputer<uint64_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads, internalMemory);
 		lqic = qsc.getLQICScores();
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();
@@ -142,10 +153,5 @@ int main(int argc, char* argv[]) {
 
 	writer.to_file(referenceTree, outputFilePath);
 
-	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-	
-	time_t ltime = time(0);
-	outfile  << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()
-			<< "," << nThreads << "," << asctime(localtime(&ltime)) << std::endl;
 	return 0;
 }
