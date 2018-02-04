@@ -1,4 +1,11 @@
-exp_list = [
-#	1,	#Executes 1st experiment: Reading small dataset and run it with different thread settings
-	2	#Exceutes 2nd experiment: Comparing the internal and external version with 300 taxa and 64GB RAM available
-]
+################ General Settings #########################
+
+logging_configuration = """
+* GLOBAL:
+   FORMAT               =  '%msg; %datetime'
+   ENABLED              =  true
+   TO_FILE              =  true
+   TO_STANDARD_OUTPUT   =  false
+   SUBSECOND_PRECISION  =  1
+"""
+
