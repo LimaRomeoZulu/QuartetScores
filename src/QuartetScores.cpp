@@ -2,6 +2,7 @@
 #include "quartet_newick_writer.hpp"
 #include "QuartetScoreComputer.hpp"
 #include "tclap/CmdLine.h" // command line parser, downloaded from http://tclap.sourceforge.net/
+#include "easylogging++.h"
 
 #include <chrono>
 #include <fstream>
@@ -15,6 +16,8 @@
 
 using namespace genesis;
 using namespace tree;
+
+INITIALIZE_EASYLOGGINGPP
 
 /**
  * Count the number of evaluation trees.
@@ -43,6 +46,11 @@ int main(int argc, char* argv[]) {
 	std::string pathToEvaluationTrees;
 	std::string outputFilePath;
 	size_t nThreads = 0;
+
+	// Load configuration from file
+	el::Configurations conf("../logging.conf");
+	// Actually reconfigure all loggers
+	el::Loggers::reconfigureAllLoggers(conf);
 
 	try {
 		TCLAP::CmdLine cmd("Compute quartet scores", ' ', "1.0");

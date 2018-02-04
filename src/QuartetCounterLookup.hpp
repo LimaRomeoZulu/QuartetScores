@@ -9,6 +9,7 @@
 #include "quartet_lookup_table.hpp"
 #include <unordered_map>
 #include <cstdint>
+#include "easylogging++.h"
 
 using namespace genesis;
 using namespace tree;
@@ -203,6 +204,8 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 	auto itTree = NewickInputIterator(instream, DefaultTreeNewickReader());
 	size_t i = 0;
 	while (itTree) { // iterate over the set of evaluation trees
+		
+		TIMED_BLOCK(timeObj, "while(itTree)_time"){
 		Tree const& tree = *itTree;
 
 		size_t nEval = tree.node_count();
@@ -231,11 +234,19 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 			std::cout << "Counting quartets... " << progress << "%" << std::endl;
 			progress++;
 		}
-
+};
 		++itTree;
 		++i;
 	}
+//std::ofstream outputfile;
+//outputfile.open("output_Scores.csv");
+//for(size_t i = 0; i < lookupTableFast.size(); i++){
+//outputfile << i << "," << lookupTableFast[i] << std::endl;
+//}
+//outputfile.close();
+
 }
+
 
 /**
  * @param refTree the reference tree
@@ -249,6 +260,7 @@ QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std:
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
 	n = 0;
+	TIMED_BLOCK(timeObj, "QuartetCounterLookup"){
 	for (auto it : eulertour(refTree)) {
 		if (it.node().is_leaf()) {
 			taxonToReferenceID[it.node().data<DefaultNodeData>().name] = it.node().index();
@@ -270,6 +282,7 @@ QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std:
 	} else {
 		std::cout << "lookup table size in bytes: " << lookupTableFast.size() * sizeof(CINT) << "\n";
 	}
+	};
 }
 
 /**
