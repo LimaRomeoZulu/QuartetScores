@@ -68,7 +68,7 @@ set (WARN_FLAGS              "-Wall -Wextra -Wno-unknown-pragmas -pedantic -peda
 set (CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -std=c++11 ${WARN_FLAGS}")
 
 set (CMAKE_CXX_FLAGS_DEBUG   "-O2 -g -ggdb3 -DDEBUG -D_GLIBCXX_DEBUG")
-set (CMAKE_CXX_FLAGS_RELEASE "-O2       -DNDEBUG")
+set (CMAKE_CXX_FLAGS_RELEASE "-O2 -g      -DDEBUG")
 
 IF(BUILD_STATIC)
     # Use different ways of telling CMake to build static, just to be sure.
@@ -88,6 +88,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/Downloads.cmake)
 
 # Add Genesis as dependency.
 add_subdirectory(${PROJECT_SOURCE_DIR}/genesis)
+add_subdirectory(${PROJECT_SOURCE_DIR}/easyloggingpp)
 
 # Use everything that Genesis exports, just to be sure that we use the same setup.
 add_definitions( ${GENESIS_DEFINITIONS} )
@@ -98,6 +99,12 @@ set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GENESIS_EXE_LINKER_FLAG
 
 # Add Tclap as dependency. It's header-only, so this is easy.
 include_directories( "tclap/include" )
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DELPP_FEATURE_PERFORMANCE_TRACKING")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DELPP_NO_DEFAULT_LOG_FILE")
+
+include_directories(${ELPP_INCLUDE_INSTALL_DIR})
+message("Easylogging DIR: ${ELPP_INCLUDE_INSTALL_DIR}")
 
 # Genesis export the OpenMP variable. We use it to check and give advice in case it is not found.
 if( NOT OPENMP_FOUND )
@@ -119,3 +126,4 @@ add_executable( QuartetScores "src/QuartetScores.cpp" )
 
 # Link it against Genesis, and against all dependencies of Genesis.
 target_link_libraries ( QuartetScores ${GENESIS_LINK_LIBRARIES} )
+target_link_libraries(QuartetScores easyloggingpp)
