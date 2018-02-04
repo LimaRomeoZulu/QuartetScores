@@ -1,0 +1,5 @@
+disk=/stxxl/emspace01/stxxl,256Gi,linuxaio direct queue_length=64
+disk=/stxxl/emspace02/stxxl,256Gi,linuxaio direct queue_length=64
+disk=/stxxl/emspace03/stxxl,256Gi,linuxaio direct queue_length=64
+disk=/stxxl/emspace04/stxxl,256Gi,linuxaio direct queue_length=64
+#disk=/stxxl/emspace05/stxxl,256Gi,linuxaio direct queue_length=64
