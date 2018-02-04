@@ -282,7 +282,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		if((i!=0) && (i%250 == 0)){
 			//end = std::chrono::steady_clock::now();
 			//std::cout << "Counting took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " microseconds." << std::endl;
-			reduceSorter();
+			//reduceSorter();
 			//begin = std::chrono::steady_clock::now();
 
 		}
