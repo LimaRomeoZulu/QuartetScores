@@ -13,7 +13,7 @@ def experiment4():
         t = time.localtime()
         timestamp = time.strftime('%b-%d-%Y_%H%M', t)
         filename = "Exp04_"+ timestamp +".log"
-        f.write("""FILENAME             =  "logs/exp3/""" + filename + """" """)
+        f.write("""FILENAME             =  "logs/exp4/""" + filename + """" """)
         f.close() 
 
 	##### Setting the parameters #####
@@ -33,9 +33,9 @@ def experiment4():
 	f.close()
 	for i in range(0,10):
 		f = open("logs/exp4/" + filename, "a")
-		f.write("[run_loop] ["+ i +" iteration]")
+		f.write("[run_loop] ["+ str(i) +" iteration]")
 		f.close()
-		os.system("../bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp4/exp4_t8_ext_"+timestamp+".tre -t 8 -i "+internalMemory)
+		os.system("../bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp4/exp4_t8_gen_"+timestamp+"_"+ str(i) +".tre -t 8 -i "+internalMemory)
 
 	referenceTree = "data/A7.RAxML.ASTRAL.tre"
 	evaluationTree = "data/A7_evaluation.tre"
@@ -50,6 +50,6 @@ def experiment4():
 	f.close()
 	for i in range(0,10):
 		f = open("logs/exp4/" + filename, "a")
-		f.write("[run_loop] ["+ i +" iteration]")
+		f.write("[run_loop] ["+ str(i) +" iteration]")
 		f.close()
-		os.system("../bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp4/exp4_t8_ext_"+timestamp+".tre -t 8 -i "+internalMemory)
+		os.system("../bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp4/exp4_t8_real_"+timestamp+"_"+str(i)+".tre -t 8 -i "+internalMemory)
