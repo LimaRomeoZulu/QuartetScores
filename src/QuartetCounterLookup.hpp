@@ -238,12 +238,12 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		++itTree;
 		++i;
 	}
-//std::ofstream outputfile;
-//outputfile.open("output_Scores.csv");
-//for(size_t i = 0; i < lookupTableFast.size(); i++){
-//outputfile << i << "," << lookupTableFast[i] << std::endl;
-//}
-//outputfile.close();
+std::ofstream outputfile;
+outputfile.open("output_Scores.csv");
+for(size_t i = 0; i < lookupTableFast.size(); i++){
+outputfile << i << "," << lookupTableFast[i] << std::endl;
+}
+outputfile.close();
 
 }
 
