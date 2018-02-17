@@ -88,7 +88,8 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndex
 						tuple[tupleIdx]++;
 					} else {
 //#pragma omp atomic
-						lookupTableFast[CO(a, a2, b, c)]++;
+						size_t tmp = CO(a, a2, b, c);
+						lookupTableFast[tmp]++;
 					}
 
 					cLeafIndex = (cLeafIndex + 1) % eulerTourLeaves.size();
@@ -217,8 +218,8 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		for (auto it : eulertour(tree)) {
 			if (it.node().is_leaf()) {
 				size_t leafIdx = it.node().index();
-				eulerTourLeaves.push_back(
-						refIdToLookupID[taxonToReferenceID.at(tree.node_at(leafIdx).data<DefaultNodeData>().name)]);
+				int tmp = refIdToLookupID[taxonToReferenceID.at(tree.node_at(leafIdx).data<DefaultNodeData>().name)]; 
+				eulerTourLeaves.push_back(tmp);
 			}
 			linkToEulerLeafIndex[it.link().index()] = eulerTourLeaves.size();
 		}
