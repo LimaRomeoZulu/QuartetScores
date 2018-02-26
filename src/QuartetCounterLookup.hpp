@@ -7,6 +7,7 @@
 #include <memory>
 #include "TreeInformation.hpp"
 #include "quartet_lookup_table.hpp"
+#include "metaquartet_lookup_table.hpp"
 #include <unordered_map>
 #include <cstdint>
 #include <stxxl/vector>
@@ -69,6 +70,7 @@ private:
 
 	std::vector<CINT> lookupTableFast; /**> larger O(n^4) lookup table storing the count of each quartet topology */
 	QuartetLookupTable<CINT> lookupTable; /**> smaller O(n^4) lookup table storing the count of each quartet topology */
+	MetaquartetLookupTable<CINT> metaLookupTable;
 
 	size_t n; /**> number of taxa in the reference tree */
 	size_t n_square; /**> n*n */
@@ -244,7 +246,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 	stxxl::stats_data stats_begin(*Stats);
 
 	while (itTree) { // iterate over the set of evaluation trees
-		TIMED_BLOCK(timerObj, "while(itTree)_time"){
+		//TIMED_BLOCK(timerObj, "while(itTree)_time"){
 		
 		Tree const& tree = *itTree;
 
@@ -269,7 +271,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 #pragma omp for schedule(dynamic)
 		for (size_t j = 0; j < nEval; ++j) {
 			if (!tree.node_at(j).is_leaf()) {
-				updateQuartets(tree, j, eulerTourLeaves, linkToEulerLeafIndex, tid);
+				//updateQuartets(tree, j, eulerTourLeaves, linkToEulerLeafIndex, tid);
 			}
 		}
 
@@ -278,7 +280,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 			progress++;
 		}
 		}
-		};
+		//}; //TIMED_BLOCK
 		if((i!=0) && (i%250 == 0)){
 			//end = std::chrono::steady_clock::now();
 			//std::cout << "Counting took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " microseconds." << std::endl;
@@ -288,6 +290,13 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		}
 		++itTree;
 		++i;
+	}
+	uint64_t tmp;
+	for(int i = 0; i <250; i++){
+		tmp = metaLookupTable.get_index(1,2,7,8);
+		quartetSorter.push(tmp,0);
+		tmp = metaLookupTable.get_index(1,7,2,8);
+		quartetSorter.push(tmp,0);
 	}
 	reduceSorter();
 	
@@ -319,7 +328,7 @@ quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, 
 	refIdToLookupID.resize(refTree.node_count());
 	nthread = num_threads;	
 	n = 0;
-	TIMED_BLOCK(timerObj, "QuartetCounterLookup_time"){
+	//TIMED_BLOCK(timerObj, "QuartetCounterLookup_time"){
 
 	for (auto it : eulertour(refTree)) {
 		if (it.node().is_leaf()) {
@@ -334,7 +343,18 @@ quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, 
 	if (savemem) {
 		lookupTable.init(n);
 	} else {
-		lookupTableFast.resize(n * n * n * n);
+		//lookupTableFast.resize(n * n * n * n);
+		metaLookupTable.init(n);
+		std::vector<std::vector<uint64_t>> furcation_lookup(n-2);
+
+		furcation_lookup[0].push_back(3UL<<62);
+		furcation_lookup[1].push_back(3UL<<60);
+		furcation_lookup[2].push_back(15UL<<60);
+		furcation_lookup[3].push_back(15UL<<56);
+		furcation_lookup[4].push_back(3UL<<58);
+		furcation_lookup[5].push_back(3UL<<56);
+
+		metaLookupTable.set_furcation_lookup(furcation_lookup);
 	}
 	countQuartets(evalTreesPath, m, taxonToReferenceID);
 	if (savemem) {
@@ -342,7 +362,7 @@ quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, 
 	} else {
 		std::cout << "lookup table size in bytes: " << lookupTableFast.size() * sizeof(CINT) << "\n";
 	}
-	};
+	//};//TIMED_BLOCK
 }
 
 /**
@@ -392,25 +412,63 @@ std::tuple<CINT, CINT, CINT> QuartetCounterLookup<CINT>::countQuartetOccurrences
 
 template<typename CINT>
 void QuartetCounterLookup<CINT>::reduceSorter() {
-	TIMED_BLOCK(obj_s, "sorting_time"){
+	//TIMED_BLOCK(obj_s, "sorting_time"){
 		quartetSorter.sort();
-	}
+	//};
 
-	TIMED_BLOCK(obj_r, "readSorter_time"){
-    	size_t tmp = *quartetSorter;
+	//TIMED_BLOCK(obj_r, "readSorter_time"){
+    	uint64_t tmp = *quartetSorter;
+	uint64_t q;
+	uint64_t mask = 3;
 	CINT counter = 0;
+	CINT counter_q1 = 0;
+	CINT counter_q2 = 0;
+	CINT counter_q3 = 0;
+	
+	uint64_t tupleIndex = 0;
     for(;!quartetSorter.empty();++quartetSorter)
     {
 		if(tmp == *quartetSorter){
 			counter++;
 		}
+		else if((tmp >> 4) - (*quartetSorter >> 4) == 0){
+			tupleIndex = tmp & mask;
+			switch(tupleIndex){
+				case 0:
+					counter_q1 = counter;
+					break;
+				case 1:
+					counter_q2 = counter;
+					break;
+				case 2:
+					counter_q3 = counter;
+					break;
+			}
+			counter = 1;
+			tmp = *quartetSorter;
+		}
 		else{
-			lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
+			tmp &= ~(mask); 
+			metaLookupTable.update_metaquartet(tmp, counter_q1, counter_q2, counter_q3);
 			counter = 1;
 			tmp = *quartetSorter;
 		}
     }
-	lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
-	quartetSorter.clear();
+	tupleIndex = tmp & mask;
+	switch(tupleIndex){
+		case 0:
+			counter_q1 = counter;
+			break;
+		case 1:
+			counter_q2 = counter;
+			break;
+		case 2:
+			counter_q3 = counter;
+			break;
 	}
+	tmp &= ~(mask); 
+	metaLookupTable.update_metaquartet(tmp, counter_q1, counter_q2, counter_q3);
+	//lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
+	quartetSorter.clear();
+	//}; //TIMED_BLOCK
 }
