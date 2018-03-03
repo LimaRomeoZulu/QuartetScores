@@ -2,7 +2,6 @@
 
 #include "genesis/genesis.hpp"
 
-#include "QuartetCounterLookup.hpp"
 #include "TreeInformation.hpp"
 
 #include <algorithm>
@@ -47,11 +46,11 @@ public:
 	std::vector<double> getLQICScores();
 	std::vector<double> getQPICScores();
 	std::vector<double> getEQPICScores();
+	void computeQuartetScoresBifurcatingQuartets(size_t uIdx, size_t vIdx, size_t wIdx, size_t zIdx, std::tuple<CINT, CINT, CINT> quartetOccurences);
 private:
 	double log_score(size_t q1, size_t q2, size_t q3);
-	void computeQuartetScoresBifurcating();
 
-	void computeQuartetScoresBifurcatingQuartets();
+	void computeQuartetScoresBifurcating();
 	std::unordered_map<std::pair<size_t, size_t>, std::tuple<CINT, CINT, CINT>, pairhash> countBuffer;
 
 	void computeQuartetScoresMultifurcating();
@@ -74,7 +73,6 @@ private:
 	std::vector<size_t> eulerTourLeaves;
 	std::vector<size_t> linkToEulerLeafIndex;
 
-	std::unique_ptr<QuartetCounterLookup<CINT>> quartetCounterLookup;
 };
 
 /**
@@ -192,34 +190,14 @@ std::pair<size_t, size_t> get_path_inner_links(TreeNode const& u, TreeNode const
 }
 
 /**
- * Count the occurrences of the quartet topologies ab|cd, ac|bd, and ad|bc in the evaluation trees.
- * @param aIdx ID of the taxon a
- * @param bIdx ID of the taxon b
- * @param cIdx ID of the taxon c
- * @param dIdx ID of the taxon d
- */
-template<typename CINT>
-std::tuple<CINT, CINT, CINT> QuartetScoreComputer<CINT>::countQuartetOccurrences(size_t aIdx, size_t bIdx, size_t cIdx,
-		size_t dIdx) {
-	return quartetCounterLookup->countQuartetOccurrences(aIdx, bIdx, cIdx, dIdx);
-}
-
-/**
  * Compute the LQ-IC, QP-IC, and EQP-IC scores for a bifurcating reference tree, iterating over quartets instead of node pairs.
  */
 template<typename CINT>
-void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets() {
+void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx, std::tuple<CINT, CINT, CINT> quartetOccurrences) {
 	// Process all quartets
 	//#pragma omp parallel for schedule(dynamic)
-	for (size_t uLeafIdx = 0; uLeafIdx < eulerTourLeaves.size(); uLeafIdx++) {
-		for (size_t vLeafIdx = uLeafIdx + 1; vLeafIdx < eulerTourLeaves.size(); vLeafIdx++) {
-			for (size_t wLeafIdx = vLeafIdx + 1; wLeafIdx < eulerTourLeaves.size(); wLeafIdx++) {
-				for (size_t zLeafIdx = wLeafIdx + 1; zLeafIdx < eulerTourLeaves.size(); zLeafIdx++) {
-					size_t uIdx = eulerTourLeaves[uLeafIdx];
-					size_t vIdx = eulerTourLeaves[vLeafIdx];
-					size_t wIdx = eulerTourLeaves[wLeafIdx];
-					size_t zIdx = eulerTourLeaves[zLeafIdx];
 					// find topology ab|cd of {u,v,w,z}
+/*
 					size_t lca_uv = informationReferenceTree.lowestCommonAncestorIdx(uIdx, vIdx, rootIdx);
 					size_t lca_uw = informationReferenceTree.lowestCommonAncestorIdx(uIdx, wIdx, rootIdx);
 					size_t lca_uz = informationReferenceTree.lowestCommonAncestorIdx(uIdx, zIdx, rootIdx);
@@ -255,10 +233,9 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets() {
 						dIdx = wIdx; // ab|cd = uz|vw
 					} else {
 						// else, we have a multifurcation and the quartet has none of these three topologies. In this case, ignore the quartet.
-						continue;
+						//continue;
 					}
 
-					std::tuple<CINT, CINT, CINT> quartetOccurrences = countQuartetOccurrences(aIdx, bIdx, cIdx, dIdx);
 
 					{ //***** Code for QP-IC and EQP-IC scores start
 						std::pair<size_t, size_t> nodePair = nodePairForQuartet(aIdx, bIdx, cIdx, dIdx);
@@ -307,7 +284,7 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets() {
 						std::get<1>(countBuffer[nodePairSorted]) += count_S1_S3_S2_S4;
 						std::get<2>(countBuffer[nodePairSorted]) += count_S1_S4_S2_S3;
 					} //***** Code for QP-IC and EQP-IC scores end
-
+*/
 					double qic = log_score(std::get<0>(quartetOccurrences), std::get<1>(quartetOccurrences),
 							std::get<2>(quartetOccurrences));
 
@@ -331,11 +308,7 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets() {
 #pragma omp critical
 						LQICScores[it.edge().index()] = std::min(LQICScores[it.edge().index()], qic);
 					}
-				}
-			}
-		}
-	}
-
+/*
 	{ // ***** Code for QP-IC and EQP-IC scores, finalizing, start
 		for (auto kv : countBuffer) {
 			std::pair<size_t, size_t> nodePair = kv.first;
@@ -366,6 +339,7 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets() {
 			}
 		}
 	} // ***** Code for QP-IC and EQP-IC scores, finalizing, end
+*/
 }
 
 /**
@@ -665,14 +639,6 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 		throw std::runtime_error("Insufficient memory!");
 	}
 
-	if (enforeSmallMem || memoryLookupFast > 0.9 * estimatedMemory) {
-		std::cout << "Using memory-efficient Lookup table\n";
-		quartetCounterLookup = make_unique<QuartetCounterLookup<CINT> >(refTree, evalTreesPath, m, true, num_threads, internalMemory);
-	} else {
-		std::cout << "Using runtime-efficient Lookup table\n";
-		quartetCounterLookup = make_unique<QuartetCounterLookup<CINT> >(refTree, evalTreesPath, m, false, num_threads, internalMemory);
-	}
-
 	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
 	std::cout << "Finished counting quartets.\n";
@@ -691,7 +657,7 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 		LQICScores.resize(referenceTree.edge_count());
 		std::fill(LQICScores.begin(), LQICScores.end(), std::numeric_limits<double>::infinity());
 		// compute only LQ-IC scores
-		computeQuartetScoresMultifurcating();
+		//computeQuartetScoresMultifurcating();
 	} else {
 		std::cout << "The reference tree is bifurcating.\n";
 		LQICScores.resize(referenceTree.edge_count());
@@ -701,9 +667,6 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 		std::fill(LQICScores.begin(), LQICScores.end(), std::numeric_limits<double>::infinity());
 		std::fill(QPICScores.begin(), QPICScores.end(), std::numeric_limits<double>::infinity());
 		std::fill(EQPICScores.begin(), EQPICScores.end(), std::numeric_limits<double>::infinity());
-		// compute LQ-IC, QP-IC and EQP-IC scores
-		computeQuartetScoresBifurcating();
-		//computeQuartetScoresBifurcatingQuartets();
 	}
 
 	end = std::chrono::steady_clock::now();
