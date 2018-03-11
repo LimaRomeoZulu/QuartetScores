@@ -6,4 +6,4 @@
 	url = https://github.com/eile/tclap.git
 [submodule "easyloggingpp"]
 	path = easyloggingpp
-	url = https://github.com/muflihun/easyloggingpp.git
+	url = https://github.com/LimaRomeoZulu/easyloggingpp.git
