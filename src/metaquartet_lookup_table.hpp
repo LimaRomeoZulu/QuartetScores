@@ -82,8 +82,15 @@ public:
 	}
 
 	uint64_t get_index(size_t a, size_t b, size_t c, size_t d) const {
-		return lookup_index_(a,b,c,d);
+		uint64_t tmp = lookup_index_(a,b,c,d);
+		return tmp;
 	}
+
+	short get_tuple(size_t a, size_t b, size_t c, size_t d){
+		return tuple_index_(a,b,c,d);
+	}
+
+
 	// -------------------------------------------------------------------------
 	//     Private Members
 	// -------------------------------------------------------------------------
@@ -120,7 +127,7 @@ public:
 		return res;
 	}
 
-	size_t tuple_index_(size_t a, size_t b, size_t c, size_t d) const {
+	short tuple_index_(size_t a, size_t b, size_t c, size_t d) const {
 		// Get all comparisons that we need.
 		bool const ac = (a<c);
 		bool const ad = (a<d);
@@ -138,7 +145,7 @@ public:
 		assert(!(x & y & z));
 		assert(x ^ y ^ z);
 		assert(x | y | z);
-		size_t const r = static_cast<size_t>(y) + 2 * static_cast<size_t>(z);
+		short const r = static_cast<short>(y) + 2 * static_cast<short>(z);
 
 		// Result has to be fitting.
 		assert(r < 3);

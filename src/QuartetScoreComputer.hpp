@@ -3,7 +3,7 @@
 #include "genesis/genesis.hpp"
 
 #include "TreeInformation.hpp"
-
+#include "easylogging++.h"
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -34,7 +34,6 @@ public:
 		return std::hash<T>()(x.first) ^ std::hash<U>()(x.second);
 	}
 };
-
 /**
  * Compute LQ-, QP-, and EQP-IC support scores for quartets.
  */
@@ -43,10 +42,17 @@ class QuartetScoreComputer {
 public:
 	QuartetScoreComputer(Tree const &refTree, const std::string &evalTreesPath, size_t m, bool verboseOutput,
 			bool enforceSmallMem, int num_threads, int internalMemory);
+	using QuartetTuple = std::array<uint16_t, 4>;
+	using QuartetCountTuple = std::array<CINT, 3>;
 	std::vector<double> getLQICScores();
 	std::vector<double> getQPICScores();
 	std::vector<double> getEQPICScores();
-	void computeQuartetScoresBifurcatingQuartets(size_t uIdx, size_t vIdx, size_t wIdx, size_t zIdx, std::tuple<CINT, CINT, CINT> quartetOccurences);
+	void computeQuartetScoresBifurcatingQuartets(size_t uIdx, size_t vIdx, size_t wIdx, size_t zIdx, std::vector<CINT> quartetOccurrences);
+	void init(size_t num_taxa);
+	size_t num_taxa() const;
+	std::vector<uint16_t> get_leaves(uint64_t q);
+	uint64_t get_index(size_t a, size_t b, size_t c, size_t d) const;
+	
 private:
 	double log_score(size_t q1, size_t q2, size_t q3);
 
@@ -57,12 +63,15 @@ private:
 	std::pair<size_t, size_t> nodePairForQuartet(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx);
 	void processNodePair(size_t uIdx, size_t vIdx);
 	std::tuple<CINT, CINT, CINT> countQuartetOccurrences(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx);
-
 	std::pair<size_t, size_t> subtreeLeafIndices(size_t linkIdx);
+	uint64_t bit_shifting_index_(size_t a, size_t b, size_t c, size_t d, size_t tupleIndex) const;
+	short tuple_index_(size_t a, size_t b, size_t c, size_t d) const;
+	uint64_t lookup_index_(size_t a, size_t b, size_t c, size_t d) const;
 
 	Tree referenceTree; /**< the reference tree */
 	size_t rootIdx; /**< ID of the genesis root node in the reference tree */
 
+	size_t num_taxa_;
 	bool verbose;
 
 	TreeInformation informationReferenceTree;
@@ -74,6 +83,124 @@ private:
 	std::vector<size_t> linkToEulerLeafIndex;
 
 };
+
+template<typename CINT>
+void QuartetScoreComputer<CINT>::init(size_t num_taxa) {
+	num_taxa_ = num_taxa;
+	// init_binom_lookup_(num_taxa);
+}
+
+template<typename CINT>
+size_t QuartetScoreComputer<CINT>::num_taxa() const {
+	return num_taxa_;
+}
+
+template<typename CINT>
+std::vector<uint16_t> QuartetScoreComputer<CINT>::get_leaves(uint64_t q){
+	std::vector<uint16_t> quartet;
+	uint64_t mask = 32767;
+	//get all possible inner nodes u
+	quartet.push_back(static_cast<uint16_t>((q & (mask << 49)) >> 49));
+	quartet.push_back(static_cast<uint16_t>((q & (mask << 34)) >> 34));
+	//get all possible inner nodes v
+	quartet.push_back(static_cast<uint16_t>((q & (mask << 19)) >> 19));
+	quartet.push_back(static_cast<uint16_t>((q & (mask << 4)) >> 4));
+	
+	return quartet;
+}
+
+template<typename CINT>
+uint64_t QuartetScoreComputer<CINT>::get_index(size_t a, size_t b, size_t c, size_t d) const {
+	uint64_t tmp = lookup_index_(a,b,c,d);
+	return tmp;
+}
+
+template<typename CINT>
+uint64_t QuartetScoreComputer<CINT>::bit_shifting_index_(size_t a, size_t b, size_t c, size_t d, size_t tupleIndex) const {
+	uint64_t res = 0;
+	uint64_t tmp = 0;
+	size_t quartet_id [4] = {a,b,c,d};
+	for (short i = 1; i < 5; i++){
+		tmp = 0;
+		tmp = quartet_id[i-1] << (64-(i*15));
+		res += tmp;
+	}
+	res += tupleIndex;
+
+	return res;
+}
+
+template<typename CINT>
+short QuartetScoreComputer<CINT>::tuple_index_(size_t a, size_t b, size_t c, size_t d) const {
+	// Get all comparisons that we need.
+	bool const ac = (a<c);
+	bool const ad = (a<d);
+	bool const bc = (b<c);
+	bool const bd = (b<d);
+
+	// Check first and third case. Second one is implied.
+	bool const x = ((ac) & (ad) & (bc) & (bd)) | ((!ac) & (!bc) & (!ad) & (!bd));
+	bool const ab_in_cd = ((!ac) & (ad) & (!bc) & (bd)) | ((!ad) & (ac) & (!bd) & (bc));
+	bool const cd_in_ab = ((ac) & (!bc) & (ad) & (!bd)) | ((bc) & (!ac) & (bd) & (!ad));
+	bool const z = ab_in_cd | cd_in_ab;
+	bool const y = !x & !z;
+
+	// Only one can be set.
+	assert(!(x & y & z));
+	assert(x ^ y ^ z);
+	assert(x | y | z);
+	short const r = static_cast<short>(y) + 2 * static_cast<short>(z);
+
+	// Result has to be fitting.
+	assert(r < 3);
+	assert((x && !y && !z && r == 0) || (!x && y && !z && r == 1) || (!x && !y && z && r == 2));
+	return r;
+}
+
+template<typename CINT>
+uint64_t QuartetScoreComputer<CINT>::lookup_index_(size_t a, size_t b, size_t c, size_t d) const {
+	size_t ta, tb, tc, td; // from largest to smallest
+	size_t low1, high1, low2, high2, middle1, middle2;
+
+	if (a < b) {
+		low1 = a;
+		high1 = b;
+	} else {
+		low1 = b;
+		high1 = a;
+	}
+	if (c < d) {
+		low2 = c;
+		high2 = d;
+	} else {
+		low2 = d;
+		high2 = c;
+	}
+
+	if (low1 < low2) {
+		td = low1;
+		middle1 = low2;
+	} else {
+		td = low2;
+		middle1 = low1;
+	}
+	if (high1 > high2) {
+		ta = high1;
+		middle2 = high2;
+	} else {
+		ta = high2;
+		middle2 = high1;
+	}
+	if (middle1 < middle2) {
+		tc = middle1;
+		tb = middle2;
+	} else {
+		tc = middle2;
+		tb = middle1;
+	}
+	size_t tupleIndex = tuple_index_(a,b,c,d);
+	return bit_shifting_index_(ta, tb, tc, td, tupleIndex);
+}
 
 /**
  * Retrieve the IDs of the node pair {u,v} that induces the metaquartet which induces the quartet {a,b,c,d}.
@@ -193,11 +320,11 @@ std::pair<size_t, size_t> get_path_inner_links(TreeNode const& u, TreeNode const
  * Compute the LQ-IC, QP-IC, and EQP-IC scores for a bifurcating reference tree, iterating over quartets instead of node pairs.
  */
 template<typename CINT>
-void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx, std::tuple<CINT, CINT, CINT> quartetOccurrences) {
+void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t uIdx, size_t vIdx, size_t wIdx, size_t zIdx, std::vector<CINT> quartetOccurrences) {
 	// Process all quartets
 	//#pragma omp parallel for schedule(dynamic)
 					// find topology ab|cd of {u,v,w,z}
-/*
+
 					size_t lca_uv = informationReferenceTree.lowestCommonAncestorIdx(uIdx, vIdx, rootIdx);
 					size_t lca_uw = informationReferenceTree.lowestCommonAncestorIdx(uIdx, wIdx, rootIdx);
 					size_t lca_uz = informationReferenceTree.lowestCommonAncestorIdx(uIdx, zIdx, rootIdx);
@@ -235,7 +362,7 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t 
 						// else, we have a multifurcation and the quartet has none of these three topologies. In this case, ignore the quartet.
 						//continue;
 					}
-
+/*
 
 					{ //***** Code for QP-IC and EQP-IC scores start
 						std::pair<size_t, size_t> nodePair = nodePairForQuartet(aIdx, bIdx, cIdx, dIdx);
@@ -285,8 +412,12 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t 
 						std::get<2>(countBuffer[nodePairSorted]) += count_S1_S4_S2_S3;
 					} //***** Code for QP-IC and EQP-IC scores end
 */
-					double qic = log_score(std::get<0>(quartetOccurrences), std::get<1>(quartetOccurrences),
-							std::get<2>(quartetOccurrences));
+					const short tupleA = tuple_index_(aIdx, bIdx, cIdx, dIdx);
+					const short tupleB = tuple_index_(aIdx, cIdx, bIdx, dIdx);
+					const short tupleC = tuple_index_(aIdx, dIdx, bIdx, cIdx);
+
+			
+					double qic = log_score(quartetOccurrences[tupleA],quartetOccurrences[tupleB],quartetOccurrences[tupleC]);
 
 					// find path ends
 					size_t lca_ab = informationReferenceTree.lowestCommonAncestorIdx(aIdx, bIdx, rootIdx);
@@ -642,8 +773,7 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
 	std::cout << "Finished counting quartets.\n";
-	std::cout << "It took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()
-			<< " microseconds." << std::endl;
+	LOG(INFO) << "[countingQuartets_time] {" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
 
 	begin = std::chrono::steady_clock::now();
 
@@ -672,6 +802,5 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 	end = std::chrono::steady_clock::now();
 
 	std::cout << "Finished computing scores.\n";
-	std::cout << "It took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()
-			<< " microseconds." << std::endl;
+	LOG(INFO) << "[computingScores_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
 }

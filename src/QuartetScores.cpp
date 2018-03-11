@@ -53,7 +53,6 @@ int main(int argc, char* argv[]) {
     el::Configurations conf("../logging.conf");
     // Actually reconfigure all loggers
     el::Loggers::reconfigureAllLoggers(conf);
-LOG(INFO) << "My first info log using default logger";
 
 	try {
 		TCLAP::CmdLine cmd("Compute quartet scores", ' ', "1.0");
@@ -130,7 +129,7 @@ LOG(INFO) << "My first info log using default logger";
 		lqic = qcl.qsc->getLQICScores();
 		qpic = qcl.qsc->getQPICScores();
 		eqpic = qcl.qsc->getEQPICScores();
-	} else if (m < (size_t(1) << 32)) {
+	} else if (m < (size_t(2) << 32)) {
 		QuartetCounterLookup<uint32_t> qcl(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads, internalMemory);
 		lqic = qcl.qsc->getLQICScores();
 		qpic = qcl.qsc->getQPICScores();
@@ -142,12 +141,12 @@ LOG(INFO) << "My first info log using default logger";
 		eqpic = qcl.qsc->getEQPICScores();
 	}
 
-	std::ofstream output;
-	output.open("lqic_scores.csv");
-	for(size_t i = 0; i < lqic.size(); i++){
-		output << lqic[i] << std::endl;
-	}
-	output.close();
+	//std::ofstream output;
+	//output.open("lqic_scores.csv");
+	//for(size_t i = 0; i < lqic.size(); i++){
+		//output << lqic[i] << std::endl;
+	//}
+	//output.close();
 
 	// Create the writer and assign values.
 	auto writer = QuartetTreeNewickWriter();
@@ -160,6 +159,9 @@ LOG(INFO) << "My first info log using default logger";
 	}
 
 	writer.to_file(referenceTree, outputFilePath);
+	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+	LOG(INFO) << "[total_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
 
 	return 0;
 }

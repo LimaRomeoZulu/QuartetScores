@@ -81,6 +81,10 @@ public:
 		return quartet_lookup_[id];
 	}
 
+	size_t get_index(size_t a, size_t b, size_t c, size_t d){
+		return lookup_index_(a,b,c,d);	
+	}
+
 	size_t tuple_index(size_t a, size_t b, size_t c, size_t d) const {
 		// Get all comparisons that we need.
 		bool const ac = (a<c);
