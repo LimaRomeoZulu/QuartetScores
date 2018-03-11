@@ -678,6 +678,7 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 	std::cout << "Finished counting quartets.\n";
 	std::cout << "It took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()
 			<< " microseconds." << std::endl;
+	LOG(INFO)<< "[countingQuartets_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
 
 	begin = std::chrono::steady_clock::now();
 
@@ -711,4 +712,5 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 	std::cout << "Finished computing scores.\n";
 	std::cout << "It took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()
 			<< " microseconds." << std::endl;
+	LOG(INFO) << "[computingScores_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
 }

@@ -206,7 +206,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 	size_t i = 0;
 	while (itTree) { // iterate over the set of evaluation trees
 		
-		TIMED_BLOCK(timeObj, "while(itTree)_time"){
+		//TIMED_BLOCK(timeObj, "while(itTree)_time"){
 		Tree const& tree = *itTree;
 
 		size_t nEval = tree.node_count();
@@ -235,16 +235,27 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 			std::cout << "Counting quartets... " << progress << "%" << std::endl;
 			progress++;
 		}
-};
+//};//TIMED_BLOCK
 		++itTree;
 		++i;
 	}
-std::ofstream outputfile;
-outputfile.open("output_Scores.csv");
-for(size_t i = 0; i < lookupTableFast.size(); i++){
-outputfile << i << "," << lookupTableFast[i] << std::endl;
+
+//std::ofstream outputfile;
+//outputfile.open("output_Scores.csv");
+//size_t num_taxa = lookupTable.num_taxa();
+//size_t const n = (num_taxa * (num_taxa - 1) * (num_taxa - 2) * (num_taxa - 3)) / 24;
+
+if(savemem){
+	//for(size_t i = 0; i < n; i++){
+	//outputfile << i << "," << std::to_string(lookupTable[i][0]) << "," << std::to_string(lookupTable[i][1])<< "," << std::to_string(lookupTable[i][2])<< std::endl;
+	//}
 }
-outputfile.close();
+else{
+	//for(size_t i = 0; i < lookupTableFast.size(); i++){
+	//outputfile << i << "," <<std::to_string(lookupTableFast[i]) << std::endl;
+	//}
+}
+//outputfile.close();
 
 }
 

@@ -135,6 +135,14 @@ int main(int argc, char* argv[]) {
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();
 	}
+
+         //std::ofstream output;
+         //output.open("lqic_scores.csv");
+         //for(size_t i = 0; i < lqic.size(); i++){
+                // output << lqic[i] << std::endl;
+         //}
+         //output.close();
+
 	// Create the writer and assign values.
 	auto writer = QuartetTreeNewickWriter();
 	writer.set_lq_ic_scores(lqic);
@@ -151,5 +159,6 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "Elapsed time: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()
 			<< " microseconds." << std::endl;
+	LOG(INFO) << "[total_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
 	return 0;
 }

@@ -51,6 +51,10 @@ public:
 	QuartetLookupTable& operator=(QuartetLookupTable const&) = default;
 	QuartetLookupTable& operator=(QuartetLookupTable&&) = default;
 
+	QuartetTuple &operator[](size_t idx){
+		return quartet_lookup_[idx]; 
+	}	
+
 	// -------------------------------------------------------------------------
 	//     Public Interface
 	// -------------------------------------------------------------------------
@@ -160,7 +164,6 @@ public:
 		res += ( b * (b - 1) * (b - 2) ) / 6;
 		res += ( c * (c - 1) ) / 2;
 		res += d;
-
 		return res;
 	}
 
