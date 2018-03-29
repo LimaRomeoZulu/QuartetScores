@@ -12,11 +12,11 @@
 #endif
 
 // =================================================================================================
-//     Quartet Lookup Table
+//     Metaquartet Lookup Table
 // =================================================================================================
 
 template<typename LookupIntType>
-class QuartetLookupTable {
+class MetaquartetLookupTable {
 public:
 
 	// -------------------------------------------------------------------------
@@ -29,15 +29,15 @@ public:
 	//     Constructors and Rule of Five
 	// -------------------------------------------------------------------------
 
-	QuartetLookupTable() :
+	MetaquartetLookupTable() :
 			num_taxa_(0) {
 	}
 
-	QuartetLookupTable(size_t num_taxa) {
+	MetaquartetLookupTable(size_t num_taxa) {
 		init(num_taxa);
 	}
 
-	~QuartetLookupTable() {
+	~MetaquartetLookupTable() {
 #ifdef USE_STXXL
 		while (!quartet_lookup_.empty()) {
 			quartet_lookup_.pop_back();
@@ -45,11 +45,11 @@ public:
 #endif
 	}
 
-	QuartetLookupTable(QuartetLookupTable const&) = default;
-	QuartetLookupTable(QuartetLookupTable&&) = default;
+	MetaquartetLookupTable(MetaquartetLookupTable const&) = default;
+	MetaquartetLookupTable(MetaquartetLookupTable&&) = default;
 
-	QuartetLookupTable& operator=(QuartetLookupTable const&) = default;
-	QuartetLookupTable& operator=(QuartetLookupTable&&) = default;
+	MetaquartetLookupTable& operator=(MetaquartetLookupTable const&) = default;
+	MetaquartetLookupTable& operator=(MetaquartetLookupTable&&) = default;
 
 	// -------------------------------------------------------------------------
 	//     Public Interface
@@ -58,7 +58,7 @@ public:
 	void init(size_t num_taxa) {
 		num_taxa_ = num_taxa;
 		// init_binom_lookup_(num_taxa);
-		init_quartet_lookup_(num_taxa);
+		init_meta_quartet_lookup_(num_taxa);
 	}
 
 	size_t num_taxa() const {
@@ -69,23 +69,65 @@ public:
 		return (quartet_lookup_.size() * 3 * sizeof(LookupIntType)) + (binom_lookup_.size() + 1) * sizeof(size_t);
 	}
 
-	QuartetTuple& get_tuple(size_t a, size_t b, size_t c, size_t d) {
-		size_t const id = lookup_index_(a, b, c, d);
-		assert(id < quartet_lookup_.size());
-		return quartet_lookup_[id];
+	std::tuple<int,int,int,int> get_leaves(uint64_t q){
+		uint64_t mask = 32767;
+		//get all possible inner nodes u
+		int a = static_cast<int>((q & (mask << 49)) >> 49);
+		int b = static_cast<int>((q & (mask << 34)) >> 34);
+		//get all possible inner nodes v
+		int c = static_cast<int>((q & (mask << 19)) >> 19);
+		int d = static_cast<int>((q & (mask << 4)) >> 4);
+		
+		return std::tuple<int,int,int,int>(a,b,c,d);
 	}
 
-	QuartetTuple const& get_tuple(size_t a, size_t b, size_t c, size_t d) const {
-		size_t const id = lookup_index_(a, b, c, d);
-		assert(id < quartet_lookup_.size());
-		return quartet_lookup_[id];
+	uint64_t get_index(size_t a, size_t b, size_t c, size_t d) const {
+		uint64_t tmp = lookup_index_(a,b,c,d);
+		return tmp;
 	}
 
-	size_t get_index(size_t a, size_t b, size_t c, size_t d){
-		return lookup_index_(a,b,c,d);	
+	short get_tuple(size_t a, size_t b, size_t c, size_t d){
+		return tuple_index_(a,b,c,d);
 	}
 
-	size_t tuple_index(size_t a, size_t b, size_t c, size_t d) const {
+
+	// -------------------------------------------------------------------------
+	//     Private Members
+	// -------------------------------------------------------------------------
+
+
+	void init_meta_quartet_lookup_(size_t num_taxa) {
+		// calculate ncr(n, 4)
+		//size_t const n = (num_taxa * (num_taxa - 1)) / 2;
+		//quartet_lookup_ = std::vector<QuartetTuple>(n, {{ 0, 0, 0 }});
+	}
+
+	size_t get_combination_id_(int a, int b){
+		size_t result = 0;
+		if(a > b){
+			result = (a*(a-1)/2) + b;
+		}
+		else{
+			result = (b*(b-1)/2) + a;
+		}
+		return result;
+	}
+
+	uint64_t bit_shifting_index_(size_t a, size_t b, size_t c, size_t d, size_t tupleIndex) const {
+		uint64_t res = 0;
+		uint64_t tmp = 0;
+		size_t quartet_id [4] = {a,b,c,d};
+		for (short i = 1; i < 5; i++){
+			tmp = 0;
+			tmp = quartet_id[i-1] << (64-(i*15));
+			res += tmp;
+		}
+		res += tupleIndex;
+
+		return res;
+	}
+
+	short tuple_index_(size_t a, size_t b, size_t c, size_t d) const {
 		// Get all comparisons that we need.
 		bool const ac = (a<c);
 		bool const ad = (a<d);
@@ -103,7 +145,7 @@ public:
 		assert(!(x & y & z));
 		assert(x ^ y ^ z);
 		assert(x | y | z);
-		size_t const r = static_cast<size_t>(y) + 2 * static_cast<size_t>(z);
+		short const r = static_cast<short>(y) + 2 * static_cast<short>(z);
 
 		// Result has to be fitting.
 		assert(r < 3);
@@ -111,64 +153,7 @@ public:
 		return r;
 	}
 
-	// -------------------------------------------------------------------------
-	//     Private Members
-	// -------------------------------------------------------------------------
-
-	void init_binom_lookup_(size_t num_taxa) {
-		binom_lookup_ = std::vector<size_t>(num_taxa * 5, 0);
-
-		for (size_t i = 0; i < num_taxa; ++i) {
-			for (size_t j = 0; j <= 4; ++j) {
-				if (i == j || j == 0 || i == 0) {
-					if (i == 0 && j > 0) {
-						binom_lookup_[i * 5 + j] = 0;
-					} else {
-						binom_lookup_[i * 5 + j] = 1;
-					}
-				} else {
-					binom_lookup_[i * 5 + j] = binom_lookup_[(i - 1) * 5 + j - 1] + binom_lookup_[(i - 1) * 5 + j];
-				}
-			}
-		}
-	}
-
-	void init_quartet_lookup_(size_t num_taxa) {
-		// calculate ncr(n, 4)
-		size_t const n = (num_taxa * (num_taxa - 1) * (num_taxa - 2) * (num_taxa - 3)) / 24;
-		quartet_lookup_ = std::vector<QuartetTuple>(n, {{ 0, 0, 0 }});
-	}
-
-	size_t binom_coefficient_sum_(size_t a, size_t b, size_t c, size_t d) const {
-		// auto binom = [&]( size_t n, size_t k ) {
-		// 	if( n * 5 + k >= binom_lookup_.size() ) {
-		// 		std::cout << "n " << n << " k " << k << " size " << binom_lookup_.size() << "\n";
-		// 	}
-		//
-		// 	assert( n * 5 + k < binom_lookup_.size() );
-		// 	return binom_lookup_[ n * 5 + k ];
-		// };
-		//
-		// // We expect sorted input, starting at the largest.
-		// assert(a > b && b > c && c > d);
-		//
-		// assert(d == binom(d, 1));
-		// size_t res = d;
-		// res += binom(c, 2);
-		// res += binom(b, 3);
-		// res += binom(a, 4);
-
-		// Alternative, without lookup.
-		size_t res = 0;
-		res += ( a * (a - 1) * (a - 2) * (a - 3) ) / 24;
-		res += ( b * (b - 1) * (b - 2) ) / 6;
-		res += ( c * (c - 1) ) / 2;
-		res += d;
-
-		return res;
-	}
-
-	size_t lookup_index_(size_t a, size_t b, size_t c, size_t d) const {
+	uint64_t lookup_index_(size_t a, size_t b, size_t c, size_t d) const {
 		size_t ta, tb, tc, td; // from largest to smallest
 		size_t low1, high1, low2, high2, middle1, middle2;
 
@@ -208,9 +193,10 @@ public:
 			tc = middle2;
 			tb = middle1;
 		}
-
-		return binom_coefficient_sum_(ta, tb, tc, td);
+		size_t tupleIndex = tuple_index_(a,b,c,d);
+		return bit_shifting_index_(ta, tb, tc, td, tupleIndex);
 	}
+
 
 	// -------------------------------------------------------------------------
 	//     Data Members
@@ -225,5 +211,6 @@ public:
 	std::vector<size_t> binom_lookup_;
 
 	size_t num_taxa_;
+	std::vector<std::vector<uint64_t>> furcation_lookup_;
 
 };
