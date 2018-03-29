@@ -335,7 +335,7 @@ quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, 
 		}
 	}
 
-	qsc = make_unique<QuartetScoreComputer<CINT>> (refTree, evalTreesPath, m, verboseOutput, savemem, num_threads, internalMemory);
+	qsc = make_unique<QuartetScoreComputer<CINT>> (refTree, evalTreesPath, m, verboseOutput, savemem, num_threads, internalMemory, refIdToLookupID);
 	n_square = n * n;
 	n_cube = n_square * n;
 	// initialize the lookup table.
@@ -472,7 +472,7 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 //			end = std::chrono::steady_clock::now();
 //			LOG(INFO) << "[computingScores_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
 //			begin = std::chrono::steady_clock::now();
-			//size_t tuple = lookupTable.get_index(quartet[0], quartet[1], quartet[2], quartet[3]); 
+			size_t tuple = lookupTable.get_index(quartet[0], quartet[1], quartet[2], quartet[3]); 
 			//output << tuple << "," << counter_q1 << "," << counter_q2 << "," << counter_q3 << std::endl;
 			counter = 1;
 			counter_q1= counter_q2= counter_q3 = 0;
@@ -504,12 +504,14 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 //	end = std::chrono::steady_clock::now();
 //	LOG(INFO) << "[computingScores_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
 //	begin = std::chrono::steady_clock::now();
-	//size_t tuple = lookupTable.get_index(quartet[0], quartet[1], quartet[2], quartet[3]); 
+	size_t tuple = lookupTable.get_index(quartet[0], quartet[1], quartet[2], quartet[3]); 
 	//output << tuple << "," << counter_q1 << "," << counter_q2 << "," << counter_q3 << std::endl;
 	counter_q1= counter_q2= counter_q3 = 0;
+	qsc->calculateQPICScores();
 	//lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
 	quartetSorter.clear();
 	//output.close();
 	end = std::chrono::steady_clock::now();
 	LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
+
 }
