@@ -120,6 +120,7 @@ LOG(INFO) << "My first info log using default logger";
 	std::vector<double> qpic;
 	std::vector<double> eqpic;
 	size_t m = countEvalTrees(pathToEvaluationTrees);
+	m = 2*m;
 	if (m < (size_t(1) << 8)) {
 		QuartetScoreComputer<uint8_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads, internalMemory);
 		lqic = qsc.getLQICScores();
@@ -141,6 +142,24 @@ LOG(INFO) << "My first info log using default logger";
 		qpic = qsc.getQPICScores();
 		eqpic = qsc.getEQPICScores();
 	}
+
+         std::ofstream output;
+         output.open("qpic_scores.csv");
+         for(size_t i = 0; i < qpic.size(); i++){
+                 output << qpic[i] << std::endl;
+         }
+         output.close();
+         output.open("lqic_scores.csv");
+         for(size_t i = 0; i < lqic.size(); i++){
+                 output << lqic[i] << std::endl;
+         }
+         output.close();
+         output.open("eqpic_scores.csv");
+         for(size_t i = 0; i < eqpic.size(); i++){
+                 output << eqpic[i] << std::endl;
+         }
+         output.close();
+
 	// Create the writer and assign values.
 	auto writer = QuartetTreeNewickWriter();
 	writer.set_lq_ic_scores(lqic);

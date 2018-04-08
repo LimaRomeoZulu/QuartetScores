@@ -1,5 +1,6 @@
 #pragma once
 
+
 #include "genesis/genesis.hpp"
 #include <vector>
 #include <cassert>
@@ -232,8 +233,7 @@ template<typename CINT>
 void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath, size_t m,
 		const std::unordered_map<std::string, size_t> &taxonToReferenceID) {
 	unsigned int progress = 1;
-	float onePercent = (float) m / 100;
-
+	float onePercent = (float)m / 200;
 	utils::InputStream instream(utils::make_unique<utils::FileInputSource>(evalTreesPath));
 	auto itTree = NewickInputIterator(instream, DefaultTreeNewickReader());
 	size_t i = 0;
@@ -271,7 +271,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 #pragma omp for schedule(dynamic)
 		for (size_t j = 0; j < nEval; ++j) {
 			if (!tree.node_at(j).is_leaf()) {
-				//updateQuartets(tree, j, eulerTourLeaves, linkToEulerLeafIndex, tid);
+				updateQuartets(tree, j, eulerTourLeaves, linkToEulerLeafIndex, tid);
 			}
 		}
 
@@ -284,19 +284,12 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		if((i!=0) && (i%250 == 0)){
 			//end = std::chrono::steady_clock::now();
 			//std::cout << "Counting took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " microseconds." << std::endl;
-			//reduceSorter();
+			reduceSorter();
 			//begin = std::chrono::steady_clock::now();
 
 		}
 		++itTree;
 		++i;
-	}
-	uint64_t tmp;
-	for(int i = 0; i <250; i++){
-		tmp = metaLookupTable.get_index(1,2,7,8);
-		quartetSorter.push(tmp,0);
-		tmp = metaLookupTable.get_index(1,7,2,8);
-		quartetSorter.push(tmp,0);
 	}
 	reduceSorter();
 	
@@ -345,16 +338,6 @@ quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, 
 	} else {
 		//lookupTableFast.resize(n * n * n * n);
 		metaLookupTable.init(n);
-		std::vector<std::vector<uint64_t>> furcation_lookup(n-2);
-
-		furcation_lookup[0].push_back(3UL<<62);
-		furcation_lookup[1].push_back(3UL<<60);
-		furcation_lookup[2].push_back(15UL<<60);
-		furcation_lookup[3].push_back(15UL<<56);
-		furcation_lookup[4].push_back(3UL<<58);
-		furcation_lookup[5].push_back(3UL<<56);
-
-		metaLookupTable.set_furcation_lookup(furcation_lookup);
 	}
 	countQuartets(evalTreesPath, m, taxonToReferenceID);
 	if (savemem) {
@@ -403,9 +386,14 @@ std::tuple<CINT, CINT, CINT> QuartetCounterLookup<CINT>::countQuartetOccurrences
 		CINT adBC = tuple[lookupTable.tuple_index(a, d, b, c)];
 		return std::tuple<CINT, CINT, CINT>(abCD, acBD, adBC);
 	} else {
-		CINT abCD = lookupQuartetCount(aIdx, bIdx, cIdx, dIdx);
-		CINT acBD = lookupQuartetCount(aIdx, cIdx, bIdx, dIdx);
-		CINT adBC = lookupQuartetCount(aIdx, dIdx, bIdx, cIdx);
+		size_t a = refIdToLookupID[aIdx];
+		size_t b = refIdToLookupID[bIdx];
+		size_t c = refIdToLookupID[cIdx];
+		size_t d = refIdToLookupID[dIdx];
+		const auto& tuple = metaLookupTable.get_tuple(a, b, c, d);
+		CINT abCD = tuple[metaLookupTable.get_index(a, b, c, d)];
+		CINT acBD = tuple[metaLookupTable.get_index(a, c, b, d)];
+		CINT adBC = tuple[metaLookupTable.get_index(a, d, b, c)];
 		return std::tuple<CINT, CINT, CINT>(abCD, acBD, adBC);
 	}
 }
@@ -418,7 +406,6 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 
 	//TIMED_BLOCK(obj_r, "readSorter_time"){
     	uint64_t tmp = *quartetSorter;
-	uint64_t q;
 	uint64_t mask = 3;
 	CINT counter = 0;
 	CINT counter_q1 = 0;
@@ -431,7 +418,7 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 		if(tmp == *quartetSorter){
 			counter++;
 		}
-		else if((tmp >> 4) - (*quartetSorter >> 4) == 0){
+		else if((tmp >> 2) - (*quartetSorter >> 2) == 0){
 			tupleIndex = tmp & mask;
 			switch(tupleIndex){
 				case 0:

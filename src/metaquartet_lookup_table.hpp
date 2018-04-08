@@ -66,31 +66,25 @@ public:
 	}
 
 	size_t size() const {
-		return (quartet_lookup_.size() * 3 * sizeof(LookupIntType)) + (binom_lookup_.size() + 1) * sizeof(size_t);
+		return (quartet_lookup_.size() * 3 * sizeof(LookupIntType) + 1) * sizeof(size_t);
+	}
+
+	QuartetTuple& get_tuple(size_t a, size_t b, size_t c, size_t d) {
+		size_t const id = lookup_index_(a, b, c, d);
+		assert(id < quartet_lookup_.size());
+		return quartet_lookup_[id];
+	}
+
+	QuartetTuple const& get_tuple(size_t a, size_t b, size_t c, size_t d) const {
+		size_t const id = lookup_index_(a, b, c, d);
+		assert(id < quartet_lookup_.size());
+		return quartet_lookup_[id];
 	}
 
 	void update_metaquartet(uint64_t q, size_t q1, size_t q2, size_t q3){
-		uint64_t mask = 32767;
-		//get all possible inner nodes u
-		int a = static_cast<int>((q & (mask << 49)) >> 49);
-		int b = static_cast<int>((q & (mask << 34)) >> 34);
-		std::vector<int> result_u = get_affected_inner_nodes(a,b);
-		//get all possible inner nodes v
-		int c = static_cast<int>((q & (mask << 19)) >> 19);
-		int d = static_cast<int>((q & (mask << 4)) >> 4);
-		std::vector<int> result_v = get_affected_inner_nodes(c,d);
-		for(int i = 0; i < result_u.size(); i++){
-			for(int j = 0; j < result_v.size(); j++){
-				size_t combination_id = get_combination_id_(result_u[i], result_v[j]);
-				quartet_lookup_[combination_id][0] += q1;
-				quartet_lookup_[combination_id][1] += q2;
-				quartet_lookup_[combination_id][2] += q3;
-			}
-		}
-	}
-
-	void set_furcation_lookup(std::vector<std::vector<uint64_t>> furcation_lookup){
-		furcation_lookup_ = furcation_lookup;
+		quartet_lookup_[q][0] += q1;
+		quartet_lookup_[q][1] += q2;
+		quartet_lookup_[q][2] += q3;
 	}
 
 	uint64_t get_index(size_t a, size_t b, size_t c, size_t d) const {
@@ -102,21 +96,16 @@ public:
 
 
 	void init_meta_quartet_lookup_(size_t num_taxa) {
-		// calculate ncr(n, 4)
-		size_t const n = (num_taxa * (num_taxa - 1)) / 2;
-		quartet_lookup_ = std::vector<QuartetTuple>(n, {{ 0, 0, 0 }});
-		furcation_lookup_ = std::vector<std::vector<uint64_t>>((num_taxa-2), std::vector<uint64_t>(ceil(num_taxa/32)));
-	}
-
-	size_t get_combination_id_(int a, int b){
-		size_t result = 0;
-		if(a > b){
-			result = (a*(a-1)/2) + b;
+		// calculate maximum size of table 
+		steps = ceil(log2(num_taxa));
+		if((steps*4 + 2) <= 32){
+			max_index_size = 32;
 		}
 		else{
-			result = (b*(b-1)/2) + a;
+			max_index_size = 64;
 		}
-		return result;
+		size_t const n = (num_taxa <<(max_index_size - (steps -1)));
+		quartet_lookup_ = std::vector<QuartetTuple>(n, {{ 0, 0, 0 }});
 	}
 
 	uint64_t bit_shifting_index_(size_t a, size_t b, size_t c, size_t d, size_t tupleIndex) const {
@@ -125,7 +114,7 @@ public:
 		size_t quartet_id [4] = {a,b,c,d};
 		for (short i = 1; i < 5; i++){
 			tmp = 0;
-			tmp = quartet_id[i-1] << (64-(i*15));
+			tmp = quartet_id[i-1] << (max_index_size-(i*steps));
 			res += tmp;
 		}
 		res += tupleIndex;
@@ -203,23 +192,6 @@ public:
 		return bit_shifting_index_(ta, tb, tc, td, tupleIndex);
 	}
 
-	std::vector<int> get_affected_inner_nodes(int a, int b){
-		std::vector<int> results;
-		bool contains_a = false;
-		bool contains_b = false;
-		uint64_t mask_a = (1UL << (64 - a%64));
-		uint64_t mask_b = (1UL << (64 - b%64));
-		uint64_t mapping = 0;
-		for(size_t i = 0; i < furcation_lookup_.size(); i++){
-			mapping = furcation_lookup_[i][a/64]; 
-			contains_a = ((mapping & mask_a) != 0);
-			contains_b = ((mapping & mask_b) != 0);
-			//check if there is an inner node, where a is part of the left child and b is part of the right site
-			if(contains_a && contains_b) results.push_back(i);
-		}
-		return results;
-	}
-	
 
 	// -------------------------------------------------------------------------
 	//     Data Members
@@ -234,6 +206,7 @@ public:
 	std::vector<size_t> binom_lookup_;
 
 	size_t num_taxa_;
-	std::vector<std::vector<uint64_t>> furcation_lookup_;
-
+	short steps;
+	short max_index_size;
 };
+
