@@ -448,33 +448,6 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t 
 						//continue;
 					}
 
-					short tupleA = tuple_index_(aIdx, bIdx, cIdx, dIdx);
-					short tupleB = tuple_index_(aIdx, cIdx, bIdx, dIdx);
-					short tupleC = tuple_index_(aIdx, dIdx, bIdx, cIdx);
-					
-			
-					double qic = log_score(quartetOccurrences[tupleA],quartetOccurrences[tupleB],quartetOccurrences[tupleC]);
-
-					// find path ends
-					size_t lca_ab = informationReferenceTree.lowestCommonAncestorIdx(aIdx, bIdx, rootIdx);
-					size_t lca_cd = informationReferenceTree.lowestCommonAncestorIdx(cIdx, dIdx, rootIdx);
-					size_t fromIdx, toIdx;
-					if (lca_cd == informationReferenceTree.lowestCommonAncestorIdx(cIdx, dIdx, lca_ab)) {
-						fromIdx = informationReferenceTree.lowestCommonAncestorIdx(aIdx, bIdx, lca_cd);
-						toIdx = lca_cd;
-					} else {
-						fromIdx = lca_ab;
-						toIdx = informationReferenceTree.lowestCommonAncestorIdx(cIdx, dIdx, lca_ab);
-					}
-					// update the LQ-IC scores of the edges from fromIdx to toIdx
-					size_t lcaFromToIdx = informationReferenceTree.lowestCommonAncestorIdx(fromIdx, toIdx, rootIdx);
-					for (auto it : path_set(referenceTree.node_at(fromIdx), referenceTree.node_at(toIdx),
-							referenceTree.node_at(lcaFromToIdx))) {
-						if (it.is_lca())
-							continue;
-#pragma omp critical
-						LQICScores[it.edge().index()] = std::min(LQICScores[it.edge().index()], qic);
-					}
 					 //***** Code for QP-IC and EQP-IC scores start
 					std::pair<size_t, size_t> nodePair = nodePairForQuartet(aIdx, bIdx, cIdx, dIdx);
 					std::pair<size_t, size_t> nodePairSorted = std::pair<size_t, size_t>(
@@ -485,19 +458,58 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t 
 						countBuffer[nodePairSorted] = emptyTuple;
 					}
 					std::tuple<size_t,size_t,size_t,size_t> quartet = getReferenceOrder(nodePairSorted.first, nodePairSorted.second, aIdx, bIdx, cIdx, dIdx); 
-					aIdx = refIdToLookupId[std::get<0>(quartet)];
-					bIdx = refIdToLookupId[std::get<1>(quartet)];
-					cIdx = refIdToLookupId[std::get<2>(quartet)];
-					dIdx = refIdToLookupId[std::get<3>(quartet)];
+					aIdx = std::get<0>(quartet);
+					bIdx = std::get<1>(quartet);
+					cIdx = std::get<2>(quartet);
+					dIdx = std::get<3>(quartet);
+					//aIdx = refIdToLookupId[std::get<0>(quartet)];
+					//bIdx = refIdToLookupId[std::get<1>(quartet)];
+					//cIdx = refIdToLookupId[std::get<2>(quartet)];
+					//dIdx = refIdToLookupId[std::get<3>(quartet)];
 
-					tupleA = tuple_index_(aIdx, bIdx, cIdx, dIdx);
-					tupleB = tuple_index_(aIdx, cIdx, bIdx, dIdx);
-					tupleC = tuple_index_(aIdx, dIdx, bIdx, cIdx);
+					short tupleA = tuple_index_(aIdx, bIdx, cIdx, dIdx);
+					short tupleB = tuple_index_(aIdx, cIdx, bIdx, dIdx);
+					short tupleC = tuple_index_(aIdx, dIdx, bIdx, cIdx);
+			
+					double qic = log_score(quartetOccurrences[tupleA],quartetOccurrences[tupleB],quartetOccurrences[tupleC]);
 
+					//std::ofstream output;
+					//output.open("countBuffer.csv", std::ios_base::app);
+					//output << nodePairSorted.first << "," << nodePairSorted.second << "," << std::get<0>(quartet) << "," << std::get<1>(quartet) << "," << std::get<2>(quartet) 
+					//<< "," << std::get<3>(quartet) << "," << quartetOccurrences[tupleA]
+					//<< "," << quartetOccurrences[tupleB] << "," << quartetOccurrences[tupleC] 
+					//<< "," << qic << std::endl;
+					//output.close();
+
+					// find path ends
+					//size_t lca_ab = informationReferenceTree.lowestCommonAncestorIdx(aIdx, bIdx, rootIdx);
+					//size_t lca_cd = informationReferenceTree.lowestCommonAncestorIdx(cIdx, dIdx, rootIdx);
+					size_t fromIdx, toIdx;
+					//if (lca_cd == informationReferenceTree.lowestCommonAncestorIdx(cIdx, dIdx, lca_ab)) {
+					//	fromIdx = informationReferenceTree.lowestCommonAncestorIdx(aIdx, bIdx, lca_cd);
+					//	toIdx = lca_cd;
+					//} else {
+					//	fromIdx = lca_ab;
+					//	toIdx = informationReferenceTree.lowestCommonAncestorIdx(cIdx, dIdx, lca_ab);
+					//}
+					fromIdx = nodePair.second;
+					toIdx = nodePair.first;
+					// update the LQ-IC scores of the edges from fromIdx to toIdx
+					size_t lcaFromToIdx = informationReferenceTree.lowestCommonAncestorIdx(fromIdx, toIdx, rootIdx);
+					for (auto it : path_set(referenceTree.node_at(fromIdx), referenceTree.node_at(toIdx),
+							referenceTree.node_at(lcaFromToIdx))) {
+						if (it.is_lca())
+							continue;
+#pragma omp critical
+						size_t egde = it.edge().index();
+						LQICScores[edge] = std::min(LQICScores[it.edge().index()], qic);
+					}
 					std::get<0>(countBuffer[nodePairSorted]) += quartetOccurrences[tupleA];
 					std::get<1>(countBuffer[nodePairSorted]) += quartetOccurrences[tupleB];
 					std::get<2>(countBuffer[nodePairSorted]) += quartetOccurrences[tupleC];
 					 //***** Code for QP-IC and EQP-IC scores end
+
+
 }
 
 /**

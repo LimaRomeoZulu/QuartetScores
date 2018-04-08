@@ -119,6 +119,7 @@ int main(int argc, char* argv[]) {
 	std::vector<double> qpic;
 	std::vector<double> eqpic;
 	size_t m = countEvalTrees(pathToEvaluationTrees);
+	m = 2*m;
 	if (m < (size_t(1) << 8)) {
 		QuartetCounterLookup<uint8_t> qcl(referenceTree, pathToEvaluationTrees, m, verbose, savemem, nThreads, internalMemory);
 		lqic = qcl.qsc->getLQICScores();
@@ -140,7 +141,7 @@ int main(int argc, char* argv[]) {
 		qpic = qcl.qsc->getQPICScores();
 		eqpic = qcl.qsc->getEQPICScores();
 	}
-/*
+
 	std::ofstream output;
 	output.open("qpic_scores.csv");
 	for(size_t i = 0; i < qpic.size(); i++){
@@ -157,7 +158,7 @@ int main(int argc, char* argv[]) {
 		output << eqpic[i] << std::endl;
 	}
 	output.close();
-*/
+
 	// Create the writer and assign values.
 	auto writer = QuartetTreeNewickWriter();
 	writer.set_lq_ic_scores(lqic);
