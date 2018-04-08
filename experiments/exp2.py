@@ -54,4 +54,6 @@ def experiment2():
 	f.write("[run_memory] ["+ str(2**int(internalMemory)) +" bytes]\n")
 	f.write("[run_internal] [0 external]\n")
 	f.close()
-	os.system("../bin_directCalc/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp2/exp2_t8_ext_"+timestamp+".tre -t 8 -i "+internalMemory)
+	os.system("../bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp2/exp2_t8_ext_"+timestamp+".tre -t 8 -i "+internalMemory)
+	
+	os.system("diff logs/exp2/exp2_t8_int_"+timestamp+".tre logs/exp2/exp2_t8_ext_"+timestamp+".tre")

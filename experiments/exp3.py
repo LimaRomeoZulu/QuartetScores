@@ -42,13 +42,13 @@ def experiment3():
 	f.write("[run_internal] [1 internal]\n")
 	f.close()
 #	os.system("../../stxxl/build/tools/./stxxl_tool mlock 52Gi")
-	os.system("../../QuartetScores/bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp3/exp3_t8_int_"+timestamp+".tre -t 8")
+	os.system("../../QuartetScores/bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp3/exp3_t8_fast_"+timestamp+".tre -t 8")
 
 	f = open("logs/exp2/" + filename, "a")
 	f.write("[run_thread] [8 threads]\n")
 	f.write("[run_internal] [2 saveMem]\n")
 	f.close()
-	os.system("../../QuartetScores/bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp2/exp2_t8_int_"+timestamp+".tre -t 8 -s")
+	os.system("../../QuartetScores/bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp2/exp2_t8_savemem_"+timestamp+".tre -t 8 -s")
 
 	f = open("logs/exp3/" + filename, "a")
 	f.write("[run_thread] [8 threads]\n")
