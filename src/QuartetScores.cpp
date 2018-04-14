@@ -114,6 +114,7 @@ int main(int argc, char* argv[]) {
 	std::vector<double> qpic;
 	std::vector<double> eqpic;
 	size_t m = countEvalTrees(pathToEvaluationTrees);
+	m = m*2;
 	if (m < (size_t(1) << 8)) {
 		QuartetScoreComputer<uint8_t> qsc(referenceTree, pathToEvaluationTrees, m, verbose, savemem);
 		lqic = qsc.getLQICScores();
@@ -136,12 +137,22 @@ int main(int argc, char* argv[]) {
 		eqpic = qsc.getEQPICScores();
 	}
 
-         //std::ofstream output;
-         //output.open("lqic_scores.csv");
-         //for(size_t i = 0; i < lqic.size(); i++){
-                // output << lqic[i] << std::endl;
-         //}
-         //output.close();
+         std::ofstream output;
+         output.open("qpic_scores.csv");
+         for(size_t i = 0; i < qpic.size(); i++){
+                 output << qpic[i] << std::endl;
+         }
+         output.close();
+         output.open("lqic_scores.csv");
+         for(size_t i = 0; i < lqic.size(); i++){
+                 output << lqic[i] << std::endl;
+         }
+         output.close();
+         output.open("eqpic_scores.csv");
+         for(size_t i = 0; i < eqpic.size(); i++){
+                 output << eqpic[i] << std::endl;
+         }
+         output.close();
 
 	// Create the writer and assign values.
 	auto writer = QuartetTreeNewickWriter();

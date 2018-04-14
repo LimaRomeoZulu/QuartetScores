@@ -377,11 +377,14 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets() {
 template<typename CINT>
 void QuartetScoreComputer<CINT>::processNodePair(size_t uIdx, size_t vIdx) {
 	// occurrences of topologies of the the metaquartet induced by {u,v} in the evaluation trees
-	unsigned p1, p2, p3;
+	size_t p1, p2, p3;
 	p1 = 0;
 	p2 = 0;
 	p3 = 0;
 	// find metaquartet indices by {u,v}
+
+	//std::ofstream output;
+	//output.open("countBuffer.csv", std::ios_base::app);	
 
 	size_t lcaIdx = informationReferenceTree.lowestCommonAncestorIdx(uIdx, vIdx, rootIdx);
 
@@ -423,12 +426,16 @@ void QuartetScoreComputer<CINT>::processNodePair(size_t uIdx, size_t vIdx) {
 
 					// process the quartet (a,b,c,d)
 					// We already know by the way we defined S1,S2,S3,S4 that the reference tree has the quartet topology ab|cd
-					std::tuple<CINT, CINT, CINT> quartetOccurrences = countQuartetOccurrences(aIdx, bIdx, cIdx, dIdx);
+					std::tuple<size_t, size_t, size_t> quartetOccurrences = countQuartetOccurrences(aIdx, bIdx, cIdx, dIdx);
 					p1 += std::get<0>(quartetOccurrences);
 					p2 += std::get<1>(quartetOccurrences);
 					p3 += std::get<2>(quartetOccurrences);
 					double qic = log_score(std::get<0>(quartetOccurrences), std::get<1>(quartetOccurrences),
 							std::get<2>(quartetOccurrences));
+
+					//output << uIdx << "," << vIdx << "," << aIdx << "," << bIdx << "," << cIdx << "," << dIdx << "," << std::get<0>(quartetOccurrences)
+					//<< "," << std::get<1>(quartetOccurrences) << "," << std::get<2>(quartetOccurrences) 
+					//<< "," << qic << std::endl;
 
 					// find path ends
 					size_t lca_ab = informationReferenceTree.lowestCommonAncestorIdx(aIdx, bIdx, rootIdx);
@@ -465,6 +472,8 @@ void QuartetScoreComputer<CINT>::processNodePair(size_t uIdx, size_t vIdx) {
 		cLeafIndex = startLeafIndexS3;
 		dLeafIndex = startLeafIndexS4;
 	}
+
+	//output.close();
 
 	// compute the QP-IC score of the current metaquartet
 	double qpic = log_score(p1, p2, p3);
@@ -661,11 +670,12 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
-	if (memoryLookup > estimatedMemory) {
-		throw std::runtime_error("Insufficient memory!");
-	}
+	//if (memoryLookup > estimatedMemory) {
+	//	throw std::runtime_error("Insufficient memory!");
+	//}
 
-	if (enforeSmallMem || memoryLookupFast > 0.9 * estimatedMemory) {
+	//if (enforeSmallMem || memoryLookupFast > 0.9 * estimatedMemory) {
+	if(enforeSmallMem){
 		std::cout << "Using memory-efficient Lookup table\n";
 		quartetCounterLookup = make_unique<QuartetCounterLookup<CINT> >(refTree, evalTreesPath, m, true);
 	} else {
