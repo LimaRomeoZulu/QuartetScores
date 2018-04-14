@@ -121,7 +121,8 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndex
 
 //size_t tmp = CO(a, a2, b, c);
 //quartetSorter.push(tmp,t);						
-size_t tmp = CO(a,a2,b,c);
+size_t tmp = metaLookupTable.get_index(a,a2,b,c);
+tmp += metaLookupTable.get_tuple_index(a,a2,b,c);
 quartetSorter.push(tmp,t);	
 //lookupTableFast[CO(a, a2, b, c)]++;
 					}
@@ -284,7 +285,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		if((i!=0) && (i%250 == 0)){
 			//end = std::chrono::steady_clock::now();
 			//std::cout << "Counting took: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " microseconds." << std::endl;
-			reduceSorter();
+			//reduceSorter();
 			//begin = std::chrono::steady_clock::now();
 
 		}
@@ -391,9 +392,13 @@ std::tuple<CINT, CINT, CINT> QuartetCounterLookup<CINT>::countQuartetOccurrences
 		size_t c = refIdToLookupID[cIdx];
 		size_t d = refIdToLookupID[dIdx];
 		const auto& tuple = metaLookupTable.get_tuple(a, b, c, d);
-		CINT abCD = tuple[metaLookupTable.get_index(a, b, c, d)];
-		CINT acBD = tuple[metaLookupTable.get_index(a, c, b, d)];
-		CINT adBC = tuple[metaLookupTable.get_index(a, d, b, c)];
+		CINT abCD = tuple[metaLookupTable.get_tuple_index(a, b, c, d)];
+		CINT acBD = tuple[metaLookupTable.get_tuple_index(a, c, b, d)];
+		CINT adBC = tuple[metaLookupTable.get_tuple_index(a, d, b, c)];
+		std::ofstream output;
+		output.open("countBuffer.csv", std::ios_base::app);
+		output << a << "," << b << "," << c << "," << d << "," << abCD << "," << acBD << "," << adBC << std::endl;
+		output.close();
 		return std::tuple<CINT, CINT, CINT>(abCD, acBD, adBC);
 	}
 }
@@ -435,6 +440,18 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 			tmp = *quartetSorter;
 		}
 		else{
+			tupleIndex = tmp & mask;
+			switch(tupleIndex){
+				case 0:
+					counter_q1 = counter;
+					break;
+				case 1:
+					counter_q2 = counter;
+					break;
+				case 2:
+					counter_q3 = counter;
+					break;
+			}
 			tmp &= ~(mask); 
 			metaLookupTable.update_metaquartet(tmp, counter_q1, counter_q2, counter_q3);
 			counter = 1;

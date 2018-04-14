@@ -90,6 +90,10 @@ public:
 	uint64_t get_index(size_t a, size_t b, size_t c, size_t d) const {
 		return lookup_index_(a,b,c,d);
 	}
+
+	short get_tuple_index(size_t a, size_t b, size_t c, size_t d) const {
+		return tuple_index_(a,b,c,d);
+	}
 	// -------------------------------------------------------------------------
 	//     Private Members
 	// -------------------------------------------------------------------------
@@ -108,7 +112,7 @@ public:
 		quartet_lookup_ = std::vector<QuartetTuple>(n, {{ 0, 0, 0 }});
 	}
 
-	uint64_t bit_shifting_index_(size_t a, size_t b, size_t c, size_t d, size_t tupleIndex) const {
+	uint64_t bit_shifting_index_(size_t a, size_t b, size_t c, size_t d) const {
 		uint64_t res = 0;
 		uint64_t tmp = 0;
 		size_t quartet_id [4] = {a,b,c,d};
@@ -117,8 +121,6 @@ public:
 			tmp = quartet_id[i-1] << (max_index_size-(i*steps));
 			res += tmp;
 		}
-		res += tupleIndex;
-
 		return res;
 	}
 
@@ -188,8 +190,7 @@ public:
 			tc = middle2;
 			tb = middle1;
 		}
-		size_t tupleIndex = tuple_index_(a,b,c,d);
-		return bit_shifting_index_(ta, tb, tc, td, tupleIndex);
+		return bit_shifting_index_(ta, tb, tc, td);
 	}
 
 
