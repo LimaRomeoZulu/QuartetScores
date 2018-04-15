@@ -102,7 +102,10 @@ public:
 	void init_meta_quartet_lookup_(size_t num_taxa) {
 		// calculate maximum size of table 
 		steps = ceil(log2(num_taxa));
-		if((steps*4 + 2) <= 32){
+		if((steps*4 + 2) <= 16){
+			max_index_size = 16;
+		}
+		else if((steps*4 + 2) <= 32){
 			max_index_size = 32;
 		}
 		else{
@@ -203,8 +206,6 @@ public:
 #else
 	std::vector<QuartetTuple> quartet_lookup_;
 #endif
-
-	std::vector<size_t> binom_lookup_;
 
 	size_t num_taxa_;
 	short steps;

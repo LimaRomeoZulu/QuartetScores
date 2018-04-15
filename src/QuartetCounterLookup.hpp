@@ -293,7 +293,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		++i;
 	}
 	reduceSorter();
-	
+		
 	stxxl::stats_data stats_end(*Stats);
 	LOG(INFO) << "[run_volumeWritten] [" << (stats_end - stats_begin).get_written_volume ()<< " bytes]"; 
 		
@@ -455,6 +455,7 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 			tmp &= ~(mask); 
 			metaLookupTable.update_metaquartet(tmp, counter_q1, counter_q2, counter_q3);
 			counter = 1;
+			counter_q1 = counter_q2 = counter_q3 = 0;
 			tmp = *quartetSorter;
 		}
     }
