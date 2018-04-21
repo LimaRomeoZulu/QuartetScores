@@ -66,64 +66,64 @@ public:
 	}
 
 	size_t size() const {
-		return (quartet_lookup_.size() * 3 * sizeof(LookupIntType)) + (binom_lookup_.size() + 1) * sizeof(size_t);
+		return (quartet_lookup_.size() * 3 * sizeof(LookupIntType) + 1) * sizeof(size_t);
 	}
 
-	std::tuple<int,int,int,int> get_leaves(uint64_t q){
-		uint64_t mask = 32767;
-		//get all possible inner nodes u
-		int a = static_cast<int>((q & (mask << 49)) >> 49);
-		int b = static_cast<int>((q & (mask << 34)) >> 34);
-		//get all possible inner nodes v
-		int c = static_cast<int>((q & (mask << 19)) >> 19);
-		int d = static_cast<int>((q & (mask << 4)) >> 4);
-		
-		return std::tuple<int,int,int,int>(a,b,c,d);
+	QuartetTuple& get_tuple(size_t a, size_t b, size_t c, size_t d) {
+		size_t const id = lookup_index_(a, b, c, d);
+		assert(id < quartet_lookup_.size());
+		return quartet_lookup_[id];
+	}
+
+	QuartetTuple const& get_tuple(size_t a, size_t b, size_t c, size_t d) const {
+		size_t const id = lookup_index_(a, b, c, d);
+		assert(id < quartet_lookup_.size());
+		return quartet_lookup_[id];
+	}
+
+	void update_metaquartet(uint64_t q, size_t q1, size_t q2, size_t q3){
+		quartet_lookup_[q][0] += q1;
+		quartet_lookup_[q][1] += q2;
+		quartet_lookup_[q][2] += q3;
 	}
 
 	uint64_t get_index(size_t a, size_t b, size_t c, size_t d) const {
-		uint64_t tmp = lookup_index_(a,b,c,d);
-		return tmp;
+		return lookup_index_(a,b,c,d);
 	}
 
-	short get_tuple(size_t a, size_t b, size_t c, size_t d){
+	short get_tuple_index(size_t a, size_t b, size_t c, size_t d) const {
 		return tuple_index_(a,b,c,d);
 	}
-
-
 	// -------------------------------------------------------------------------
 	//     Private Members
 	// -------------------------------------------------------------------------
 
 
 	void init_meta_quartet_lookup_(size_t num_taxa) {
-		// calculate ncr(n, 4)
-		//size_t const n = (num_taxa * (num_taxa - 1)) / 2;
-		//quartet_lookup_ = std::vector<QuartetTuple>(n, {{ 0, 0, 0 }});
-	}
-
-	size_t get_combination_id_(int a, int b){
-		size_t result = 0;
-		if(a > b){
-			result = (a*(a-1)/2) + b;
+		// calculate maximum size of table 
+		steps = ceil(log2(num_taxa));
+		if((steps*4 + 2) <= 16){
+			max_index_size = 16;
+		}
+		else if((steps*4 + 2) <= 32){
+			max_index_size = 32;
 		}
 		else{
-			result = (b*(b-1)/2) + a;
+			max_index_size = 64;
 		}
-		return result;
+		size_t const n = (num_taxa <<(max_index_size - (steps -1)));
+		quartet_lookup_ = std::vector<QuartetTuple>(n, {{ 0, 0, 0 }});
 	}
 
-	uint64_t bit_shifting_index_(size_t a, size_t b, size_t c, size_t d, size_t tupleIndex) const {
+	uint64_t bit_shifting_index_(size_t a, size_t b, size_t c, size_t d) const {
 		uint64_t res = 0;
 		uint64_t tmp = 0;
 		size_t quartet_id [4] = {a,b,c,d};
 		for (short i = 1; i < 5; i++){
 			tmp = 0;
-			tmp = quartet_id[i-1] << (64-(i*15));
+			tmp = quartet_id[i-1] << (max_index_size-(i*steps));
 			res += tmp;
 		}
-		res += tupleIndex;
-
 		return res;
 	}
 
@@ -193,8 +193,7 @@ public:
 			tc = middle2;
 			tb = middle1;
 		}
-		size_t tupleIndex = tuple_index_(a,b,c,d);
-		return bit_shifting_index_(ta, tb, tc, td, tupleIndex);
+		return bit_shifting_index_(ta, tb, tc, td);
 	}
 
 
@@ -208,9 +207,8 @@ public:
 	std::vector<QuartetTuple> quartet_lookup_;
 #endif
 
-	std::vector<size_t> binom_lookup_;
-
 	size_t num_taxa_;
-	std::vector<std::vector<uint64_t>> furcation_lookup_;
-
+	short steps;
+	short max_index_size;
 };
+

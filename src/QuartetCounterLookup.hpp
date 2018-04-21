@@ -1,5 +1,6 @@
 #pragma once
 
+
 #include "genesis/genesis.hpp"
 #include <vector>
 #include <cassert>
@@ -51,7 +52,7 @@ struct my_comparator
 template<typename CINT>
 class QuartetCounterLookup {
 public:
-	QuartetCounterLookup(const Tree &refTree, const std::string &evalTreesPath, size_t m, bool verboseOutput, bool savemem, int num_threads, int internalMemory);
+	QuartetCounterLookup(const Tree &refTree, const std::string &evalTreesPath, size_t m, bool savemem, int num_threads, int internalMemory);
 	~QuartetCounterLookup() = default;
 	std::tuple<CINT, CINT, CINT> countQuartetOccurrences(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx) const;
 	std::unique_ptr<QuartetScoreComputer<CINT>> qsc;
@@ -113,16 +114,20 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndex
 					size_t c = eulerTourLeaves[cLeafIndex];
 
 					if (savemem) {
-						auto& tuple = lookupTable.get_tuple(a, a2, b, c);
+						size_t tuple = lookupTable.get_tuple_id(a, a2, b, c);
 						size_t tupleIdx = lookupTable.tuple_index(a, a2, b, c);
+						size_t tmp = tuple << 2;
+						tmp +=tupleIdx;
+						quartetSorter.push(tmp,t);
 //#pragma omp atomic
-						tuple[tupleIdx]++;
+						//tuple[tupleIdx]++;
 					} else {
 //#pragma omp atomic
 
 //size_t tmp = CO(a, a2, b, c);
 //quartetSorter.push(tmp,t);						
-uint64_t tmp = qsc->get_index(a,a2,b,c);
+size_t tmp = metaLookupTable.get_index(a,a2,b,c);
+tmp += metaLookupTable.get_tuple_index(a,a2,b,c);
 quartetSorter.push(tmp,t);	
 //lookupTableFast[CO(a, a2, b, c)]++;
 					}
@@ -234,8 +239,7 @@ template<typename CINT>
 void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath, size_t m,
 		const std::unordered_map<std::string, size_t> &taxonToReferenceID) {
 	unsigned int progress = 1;
-	float onePercent = (float) m / 100;
-
+	float onePercent = (float)m / 200;
 	utils::InputStream instream(utils::make_unique<utils::FileInputSource>(evalTreesPath));
 	auto itTree = NewickInputIterator(instream, DefaultTreeNewickReader());
 	size_t i = 0;
@@ -296,7 +300,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 	end = std::chrono::steady_clock::now();
 	LOG(INFO) << "[counting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
 	reduceSorter();
-	
+		
 	stxxl::stats_data stats_end(*Stats);
 	LOG(INFO) << "[run_volumeWritten] [" << (stats_end - stats_begin).get_written_volume ()<< " bytes]"; 
 		
@@ -316,7 +320,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
  * @param m the number of evaluation trees
  */
 template<typename CINT>
-QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std::string &evalTreesPath, size_t m, bool verboseOutput,
+QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std::string &evalTreesPath, size_t m,
 		bool savemem,int num_threads, int internalMemory) :
 		savemem(savemem),
 quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, num_threads) {
@@ -345,7 +349,7 @@ quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, 
 		lookupTable.init(n);
 	} else {
 		//lookupTableFast.resize(n * n * n * n);
-		qsc->init(n);
+	//	metaLookupTable.init(n);
 	}
 	countQuartets(evalTreesPath, m, taxonToReferenceID);
 	if (savemem) {
@@ -392,6 +396,10 @@ std::tuple<CINT, CINT, CINT> QuartetCounterLookup<CINT>::countQuartetOccurrences
 		CINT abCD = tuple[lookupTable.tuple_index(a, b, c, d)];
 		CINT acBD = tuple[lookupTable.tuple_index(a, c, b, d)];
 		CINT adBC = tuple[lookupTable.tuple_index(a, d, b, c)];
+		//std::ofstream output;
+		//output.open("countBuffer.csv", std::ios_base::app);
+		//output << a << "," << b << "," << c << "," << d << "," << abCD << "," << acBD << "," << adBC << std::endl;
+		//output.close();
 		return std::tuple<CINT, CINT, CINT>(abCD, acBD, adBC);
 	} else {
 		CINT abCD = lookupQuartetCount(aIdx, bIdx, cIdx, dIdx);
@@ -424,15 +432,13 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 	uint16_t c;
 	uint16_t d;
 	
-	//std::ofstream output;
-	//output.open("output_Scores.csv", std::ofstream::app);
-
+	uint64_t tupleIndex = 0;
     for(;!quartetSorter.empty();++quartetSorter)
     {
 		if(tmp == *quartetSorter){
 			counter++;
 		}
-		else if((tmp >> 4) - (*quartetSorter >> 4) == 0){
+		else if((tmp >> 2) - (*quartetSorter >> 2) == 0){
 			tupleIndex = tmp & mask;
 			switch(tupleIndex){
 				case 0:
@@ -462,26 +468,10 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 					break;
 			}
 			tmp &= ~(mask); 
-			quartet = qsc->get_leaves(tmp);
-			a = lookupIdToRefId[quartet[0]];
-			b = lookupIdToRefId[quartet[1]];
-			c = lookupIdToRefId[quartet[2]];
-			d = lookupIdToRefId[quartet[3]];
-			//Experiment 6: Time profile
-			end = std::chrono::steady_clock::now();
-			LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
-			begin = std::chrono::steady_clock::now();
-			//END Experiment 6: Time profile
-			qsc->computeQuartetScoresBifurcatingQuartets(a,b,c,d,{{counter_q1, counter_q2, counter_q3}});
-			//Experiment 6: Time profile
-			end = std::chrono::steady_clock::now();
-			LOG(INFO) << "[computingScores_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
-			begin = std::chrono::steady_clock::now();
-			//END Experiment 6: Time profile
-			size_t tuple = lookupTable.get_index(quartet[0], quartet[1], quartet[2], quartet[3]); 
-			//output << tuple << "," << counter_q1 << "," << counter_q2 << "," << counter_q3 << std::endl;
+			tmp = tmp >> 2;
+			lookupTable.update_quartet(tmp, counter_q1, counter_q2, counter_q3);
 			counter = 1;
-			counter_q1= counter_q2= counter_q3 = 0;
+			counter_q1 = counter_q2 = counter_q3 = 0;
 			tmp = *quartetSorter;
 		}
     }
@@ -498,26 +488,8 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 			break;
 	}
 	tmp &= ~(mask); 
-	quartet = qsc->get_leaves(tmp);
-	a = lookupIdToRefId[quartet[0]];
-	b = lookupIdToRefId[quartet[1]];
-	c = lookupIdToRefId[quartet[2]];
-	d = lookupIdToRefId[quartet[3]];
-	//Experiment 6: Time profile
-	end = std::chrono::steady_clock::now();
-	LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
-	begin = std::chrono::steady_clock::now();
-	//END Experiment 6: Time profile
-	qsc->computeQuartetScoresBifurcatingQuartets(a,b,c,d,{{counter_q1, counter_q2, counter_q3}});
-	//Experiment 6: Time profile
-	end = std::chrono::steady_clock::now();
-	LOG(INFO) << "[computingScores_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
-	begin = std::chrono::steady_clock::now();
-	//END Experiment 6: Time profile
-	size_t tuple = lookupTable.get_index(quartet[0], quartet[1], quartet[2], quartet[3]); 
-	//output << tuple << "," << counter_q1 << "," << counter_q2 << "," << counter_q3 << std::endl;
-	counter_q1= counter_q2= counter_q3 = 0;
-	qsc->calculateQPICScores();
+	tmp = tmp >> 2;
+	lookupTable.update_quartet(tmp, counter_q1, counter_q2, counter_q3);
 	//lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
 	quartetSorter.clear();
 	//output.close();
