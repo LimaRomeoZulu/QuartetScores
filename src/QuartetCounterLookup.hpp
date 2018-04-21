@@ -112,10 +112,13 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndex
 					size_t c = eulerTourLeaves[cLeafIndex];
 
 					if (savemem) {
-						auto& tuple = lookupTable.get_tuple(a, a2, b, c);
+						size_t tuple = lookupTable.get_tuple_id(a, a2, b, c);
 						size_t tupleIdx = lookupTable.tuple_index(a, a2, b, c);
+						size_t tmp = tuple << 2;
+						tmp +=tupleIdx;
+						quartetSorter.push(tmp,t);
 //#pragma omp atomic
-						tuple[tupleIdx]++;
+						//tuple[tupleIdx]++;
 					} else {
 //#pragma omp atomic
 
@@ -338,7 +341,7 @@ quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, 
 		lookupTable.init(n);
 	} else {
 		//lookupTableFast.resize(n * n * n * n);
-		metaLookupTable.init(n);
+	//	metaLookupTable.init(n);
 	}
 	countQuartets(evalTreesPath, m, taxonToReferenceID);
 	if (savemem) {
@@ -385,6 +388,10 @@ std::tuple<CINT, CINT, CINT> QuartetCounterLookup<CINT>::countQuartetOccurrences
 		CINT abCD = tuple[lookupTable.tuple_index(a, b, c, d)];
 		CINT acBD = tuple[lookupTable.tuple_index(a, c, b, d)];
 		CINT adBC = tuple[lookupTable.tuple_index(a, d, b, c)];
+		//std::ofstream output;
+		//output.open("countBuffer.csv", std::ios_base::app);
+		//output << a << "," << b << "," << c << "," << d << "," << abCD << "," << acBD << "," << adBC << std::endl;
+		//output.close();
 		return std::tuple<CINT, CINT, CINT>(abCD, acBD, adBC);
 	} else {
 		size_t a = refIdToLookupID[aIdx];
@@ -395,10 +402,10 @@ std::tuple<CINT, CINT, CINT> QuartetCounterLookup<CINT>::countQuartetOccurrences
 		CINT abCD = tuple[metaLookupTable.get_tuple_index(a, b, c, d)];
 		CINT acBD = tuple[metaLookupTable.get_tuple_index(a, c, b, d)];
 		CINT adBC = tuple[metaLookupTable.get_tuple_index(a, d, b, c)];
-		std::ofstream output;
-		output.open("countBuffer.csv", std::ios_base::app);
-		output << a << "," << b << "," << c << "," << d << "," << abCD << "," << acBD << "," << adBC << std::endl;
-		output.close();
+		//std::ofstream output;
+		//output.open("countBuffer.csv", std::ios_base::app);
+		//output << a << "," << b << "," << c << "," << d << "," << abCD << "," << acBD << "," << adBC << std::endl;
+		//output.close();
 		return std::tuple<CINT, CINT, CINT>(abCD, acBD, adBC);
 	}
 }
@@ -453,7 +460,8 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 					break;
 			}
 			tmp &= ~(mask); 
-			metaLookupTable.update_metaquartet(tmp, counter_q1, counter_q2, counter_q3);
+			tmp = tmp >> 2;
+			lookupTable.update_quartet(tmp, counter_q1, counter_q2, counter_q3);
 			counter = 1;
 			counter_q1 = counter_q2 = counter_q3 = 0;
 			tmp = *quartetSorter;
@@ -472,7 +480,8 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 			break;
 	}
 	tmp &= ~(mask); 
-	metaLookupTable.update_metaquartet(tmp, counter_q1, counter_q2, counter_q3);
+	tmp = tmp >> 2;
+	lookupTable.update_quartet(tmp, counter_q1, counter_q2, counter_q3);
 	//lookupTableFast[tmp] = lookupTableFast[tmp] + counter;
 	quartetSorter.clear();
 	//}; //TIMED_BLOCK

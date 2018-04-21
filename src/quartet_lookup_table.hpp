@@ -81,6 +81,17 @@ public:
 		return quartet_lookup_[id];
 	}
 
+	size_t get_tuple_id(size_t a, size_t b, size_t c, size_t d) {
+		size_t id = lookup_index_(a, b, c, d);
+		assert(id < quartet_lookup_.size());
+		return id;
+	}
+
+	void update_quartet(size_t id, LookupIntType counter_q1, LookupIntType counter_q2, LookupIntType counter_q3){
+		QuartetTuple q = {counter_q1, counter_q2, counter_q3};
+		quartet_lookup_[id] = q;
+	}
+
 	size_t tuple_index(size_t a, size_t b, size_t c, size_t d) const {
 		// Get all comparisons that we need.
 		bool const ac = (a<c);
