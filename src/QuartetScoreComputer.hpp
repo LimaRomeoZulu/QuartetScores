@@ -1,7 +1,7 @@
 #pragma once
 
 #include "genesis/genesis.hpp"
-
+#include "QuartetCounterLookup.hpp"
 #include "TreeInformation.hpp"
 #include "easylogging++.h"
 #include <algorithm>
@@ -41,7 +41,7 @@ template<typename CINT>
 class QuartetScoreComputer {
 public:
 	QuartetScoreComputer(Tree const &refTree, const std::string &evalTreesPath, size_t m, bool verboseOutput,
-			bool enforceSmallMem, int num_threads, int internalMemory, std::vector<size_t>& refIdToLookupID);
+			bool enforceSmallMem, int num_threads, int internalMemory);
 	using QuartetTuple = std::array<uint16_t, 4>;
 	using QuartetCountTuple = std::array<CINT, 3>;
 	std::vector<double> getLQICScores();
@@ -86,125 +86,8 @@ private:
 	std::vector<size_t> eulerTourLeaves;
 	std::vector<size_t> linkToEulerLeafIndex;
 
+	std::unique_ptr<QuartetCounterLookup<CINT>> quartetCounterLookup;
 };
-
-template<typename CINT>
-void QuartetScoreComputer<CINT>::init(size_t num_taxa) {
-	num_taxa_ = num_taxa;
-	// init_binom_lookup_(num_taxa);
-}
-
-template<typename CINT>
-size_t QuartetScoreComputer<CINT>::num_taxa() const {
-	return num_taxa_;
-}
-
-template<typename CINT>
-std::vector<uint16_t> QuartetScoreComputer<CINT>::get_leaves(uint64_t q){
-	std::vector<uint16_t> quartet;
-	uint64_t mask = 32767;
-	//get all possible inner nodes u
-	quartet.push_back(static_cast<uint16_t>((q & (mask << 49)) >> 49));
-	quartet.push_back(static_cast<uint16_t>((q & (mask << 34)) >> 34));
-	//get all possible inner nodes v
-	quartet.push_back(static_cast<uint16_t>((q & (mask << 19)) >> 19));
-	quartet.push_back(static_cast<uint16_t>((q & (mask << 4)) >> 4));
-	
-	return quartet;
-}
-
-template<typename CINT>
-uint64_t QuartetScoreComputer<CINT>::get_index(size_t a, size_t b, size_t c, size_t d) const {
-	uint64_t tmp = lookup_index_(a,b,c,d);
-	return tmp;
-}
-
-template<typename CINT>
-uint64_t QuartetScoreComputer<CINT>::bit_shifting_index_(size_t a, size_t b, size_t c, size_t d, size_t tupleIndex) const {
-	uint64_t res = 0;
-	uint64_t tmp = 0;
-	size_t quartet_id [4] = {a,b,c,d};
-	for (short i = 1; i < 5; i++){
-		tmp = 0;
-		tmp = quartet_id[i-1] << (64-(i*15));
-		res += tmp;
-	}
-	res += tupleIndex;
-
-	return res;
-}
-
-template<typename CINT>
-short QuartetScoreComputer<CINT>::tuple_index_(size_t a, size_t b, size_t c, size_t d) const {
-	// Get all comparisons that we need.
-	bool const ac = (a<c);
-	bool const ad = (a<d);
-	bool const bc = (b<c);
-	bool const bd = (b<d);
-
-	// Check first and third case. Second one is implied.
-	bool const x = ((ac) & (ad) & (bc) & (bd)) | ((!ac) & (!bc) & (!ad) & (!bd));
-	bool const ab_in_cd = ((!ac) & (ad) & (!bc) & (bd)) | ((!ad) & (ac) & (!bd) & (bc));
-	bool const cd_in_ab = ((ac) & (!bc) & (ad) & (!bd)) | ((bc) & (!ac) & (bd) & (!ad));
-	bool const z = ab_in_cd | cd_in_ab;
-	bool const y = !x & !z;
-
-	// Only one can be set.
-	assert(!(x & y & z));
-	assert(x ^ y ^ z);
-	assert(x | y | z);
-	short const r = static_cast<short>(y) + 2 * static_cast<short>(z);
-
-	// Result has to be fitting.
-	assert(r < 3);
-	assert((x && !y && !z && r == 0) || (!x && y && !z && r == 1) || (!x && !y && z && r == 2));
-	return r;
-}
-
-template<typename CINT>
-uint64_t QuartetScoreComputer<CINT>::lookup_index_(size_t a, size_t b, size_t c, size_t d) const {
-	size_t ta, tb, tc, td; // from largest to smallest
-	size_t low1, high1, low2, high2, middle1, middle2;
-
-	if (a < b) {
-		low1 = a;
-		high1 = b;
-	} else {
-		low1 = b;
-		high1 = a;
-	}
-	if (c < d) {
-		low2 = c;
-		high2 = d;
-	} else {
-		low2 = d;
-		high2 = c;
-	}
-
-	if (low1 < low2) {
-		td = low1;
-		middle1 = low2;
-	} else {
-		td = low2;
-		middle1 = low1;
-	}
-	if (high1 > high2) {
-		ta = high1;
-		middle2 = high2;
-	} else {
-		ta = high2;
-		middle2 = high1;
-	}
-	if (middle1 < middle2) {
-		tc = middle1;
-		tb = middle2;
-	} else {
-		tc = middle2;
-		tb = middle1;
-	}
-	size_t tupleIndex = tuple_index_(a,b,c,d);
-	return bit_shifting_index_(ta, tb, tc, td, tupleIndex);
-}
 
 /**
  * Retrieve the IDs of the node pair {u,v} that induces the metaquartet which induces the quartet {a,b,c,d}.
@@ -355,49 +238,17 @@ void QuartetScoreComputer<CINT>::calculateQPICScores(){
 	 // ***** Code for QP-IC and EQP-IC scores, finalizing, end
 }
 
+/**
+ * Count the occurrences of the quartet topologies ab|cd, ac|bd, and ad|bc in the evaluation trees.
+ * @param aIdx ID of the taxon a
+ * @param bIdx ID of the taxon b
+ * @param cIdx ID of the taxon c
+ * @param dIdx ID of the taxon d
+ */
 template<typename CINT>
-size_t QuartetScoreComputer<CINT>::checkExistenceInSubtree(size_t startLeafIndex, size_t endLeafIndex, size_t a, size_t b, size_t c, size_t d){
-	size_t leafIndex = startLeafIndex;
-	while(leafIndex != endLeafIndex){
-		if(eulerTourLeaves[leafIndex] == a || eulerTourLeaves[leafIndex] == b || eulerTourLeaves[leafIndex] == c || eulerTourLeaves[leafIndex] == d) return eulerTourLeaves[leafIndex];
-		leafIndex = (leafIndex + 1) % eulerTourLeaves.size();
-	}
-	throw std::runtime_error("Leaf not found in subtree");
-}
-
-template<typename CINT>
-std::tuple<size_t, size_t, size_t, size_t> QuartetScoreComputer<CINT>::getReferenceOrder(size_t uIdx, size_t vIdx, size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx){
-	size_t a,b,c,d = 0;
-	size_t lcaIdx = informationReferenceTree.lowestCommonAncestorIdx(uIdx, vIdx, rootIdx);
-
-	std::pair<size_t, size_t> innerLinks = get_path_inner_links(referenceTree.node_at(uIdx),
-			referenceTree.node_at(vIdx), referenceTree.node_at(lcaIdx));
-
-	size_t linkSubtree1 = referenceTree.link_at(innerLinks.first).next().index();
-	size_t linkSubtree2 = referenceTree.link_at(innerLinks.first).next().next().index();
-	size_t linkSubtree3 = referenceTree.link_at(innerLinks.second).next().index();
-	size_t linkSubtree4 = referenceTree.link_at(innerLinks.second).next().next().index();
-	// iterate over all quartets from {subtree1} x {subtree2} x {subtree3} x {subtree4}.
-	// These are the quartets relevant to the current metaquartet.
-	size_t startLeafIndexS1 = linkToEulerLeafIndex[linkSubtree1] % eulerTourLeaves.size();
-	size_t endLeafIndexS1 = linkToEulerLeafIndex[referenceTree.link_at(linkSubtree1).outer().index()]
-			% eulerTourLeaves.size();
-	size_t startLeafIndexS2 = linkToEulerLeafIndex[linkSubtree2] % eulerTourLeaves.size();
-	size_t endLeafIndexS2 = linkToEulerLeafIndex[referenceTree.link_at(linkSubtree2).outer().index()]
-			% eulerTourLeaves.size();
-	size_t startLeafIndexS3 = linkToEulerLeafIndex[linkSubtree3] % eulerTourLeaves.size();
-	size_t endLeafIndexS3 = linkToEulerLeafIndex[referenceTree.link_at(linkSubtree3).outer().index()]
-			% eulerTourLeaves.size();
-	size_t startLeafIndexS4 = linkToEulerLeafIndex[linkSubtree4] % eulerTourLeaves.size();
-	size_t endLeafIndexS4 = linkToEulerLeafIndex[referenceTree.link_at(linkSubtree4).outer().index()]
-			% eulerTourLeaves.size();
-
-	a = checkExistenceInSubtree(startLeafIndexS1, endLeafIndexS1, aIdx, bIdx, cIdx, dIdx);
-	b = checkExistenceInSubtree(startLeafIndexS2, endLeafIndexS2, aIdx, bIdx, cIdx, dIdx);
-	c = checkExistenceInSubtree(startLeafIndexS3, endLeafIndexS3, aIdx, bIdx, cIdx, dIdx);
-	d = checkExistenceInSubtree(startLeafIndexS4, endLeafIndexS4, aIdx, bIdx, cIdx, dIdx);
-
-	return std::tuple<size_t,size_t,size_t,size_t>(a,b,c,d);
+std::tuple<CINT, CINT, CINT> QuartetScoreComputer<CINT>::countQuartetOccurrences(size_t aIdx, size_t bIdx, size_t cIdx,
+		size_t dIdx) {
+	return quartetCounterLookup->countQuartetOccurrences(aIdx, bIdx, cIdx, dIdx);
 }
 
 
@@ -501,8 +352,7 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t 
 						if (it.is_lca())
 							continue;
 #pragma omp critical
-						size_t egde = it.edge().index();
-						LQICScores[edge] = std::min(LQICScores[it.edge().index()], qic);
+						LQICScores[it.edge().index()] = std::min(LQICScores[it.edge().index()], qic);
 					}
 					std::get<0>(countBuffer[nodePairSorted]) += quartetOccurrences[tupleA];
 					std::get<1>(countBuffer[nodePairSorted]) += quartetOccurrences[tupleB];
@@ -770,7 +620,7 @@ inline size_t getTotalSystemMemory() {
  */
 template<typename CINT>
 QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std::string &evalTreesPath, size_t m,
-		bool verboseOutput, bool enforeSmallMem, int num_threads, int internalMemory, std::vector<size_t>& refIdToLookupID) {
+		bool verboseOutput, bool enforeSmallMem, int num_threads, int internalMemory) {
 	referenceTree = refTree;
 	rootIdx = referenceTree.root_node().index();
 
@@ -789,7 +639,6 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 		linkToEulerLeafIndex[it.link().index()] = eulerTourLeaves.size();
 	}
 	size_t n = eulerTourLeaves.size();
-	refIdToLookupId = refIdToLookupID;
 
 	std::cout << "Finished precomputing subtree informations in reference tree.\n";
 	std::cout << "The reference tree has " << n << " taxa.\n";
@@ -808,6 +657,15 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 
 	if (memoryLookup > estimatedMemory) {
 		throw std::runtime_error("Insufficient memory!");
+	}
+
+	//if (enforeSmallMem || memoryLookupFast > 0.9 * estimatedMemory) {
+	if(enforeSmallMem){
+		std::cout << "Using memory-efficient Lookup table\n";
+		quartetCounterLookup = make_unique<QuartetCounterLookup<CINT> >(refTree, evalTreesPath, m, true, num_threads, internalMemory);
+	} else {
+		std::cout << "Using runtime-efficient Lookup table\n";
+		quartetCounterLookup = make_unique<QuartetCounterLookup<CINT> >(refTree, evalTreesPath, m, false, num_threads, internalMemory);
 	}
 
 	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
@@ -837,6 +695,9 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 		std::fill(LQICScores.begin(), LQICScores.end(), std::numeric_limits<double>::infinity());
 		std::fill(QPICScores.begin(), QPICScores.end(), std::numeric_limits<double>::infinity());
 		std::fill(EQPICScores.begin(), EQPICScores.end(), std::numeric_limits<double>::infinity());
+		// compute LQ-IC, QP-IC and EQP-IC scores
+		computeQuartetScoresBifurcating();
+		//computeQuartetScoresBifurcatingQuartets();
 	}
 
 	end = std::chrono::steady_clock::now();

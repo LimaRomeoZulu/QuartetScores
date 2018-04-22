@@ -88,8 +88,9 @@ public:
 	}
 
 	void update_quartet(size_t id, LookupIntType counter_q1, LookupIntType counter_q2, LookupIntType counter_q3){
-		QuartetTuple q = {counter_q1, counter_q2, counter_q3};
-		quartet_lookup_[id] = q;
+		quartet_lookup_[id][0] += counter_q1;
+		quartet_lookup_[id][1] += counter_q2;
+		quartet_lookup_[id][2] += counter_q3;
 	}
 
 	size_t tuple_index(size_t a, size_t b, size_t c, size_t d) const {

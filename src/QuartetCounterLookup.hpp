@@ -55,7 +55,6 @@ public:
 	QuartetCounterLookup(const Tree &refTree, const std::string &evalTreesPath, size_t m, bool savemem, int num_threads, int internalMemory);
 	~QuartetCounterLookup() = default;
 	std::tuple<CINT, CINT, CINT> countQuartetOccurrences(size_t aIdx, size_t bIdx, size_t cIdx, size_t dIdx) const;
-	std::unique_ptr<QuartetScoreComputer<CINT>> qsc;
 private:
 	void countQuartets(const std::string &evalTreesPath, size_t m,
 			const std::unordered_map<std::string, size_t> &taxonToReferenceID);
@@ -78,7 +77,6 @@ private:
 	size_t n_square; /**> n*n */
 	size_t n_cube; /**> n*n*n */
 	std::vector<size_t> refIdToLookupID;
-	std::vector<size_t> lookupIdToRefId;
 	bool savemem; /**> trade speed for less memory or not */
 	void reduceSorter();
 	stxxl::parallel_sorter_synchron<uint64_t, my_comparator<uint64_t> > quartetSorter;
@@ -126,9 +124,9 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndex
 
 //size_t tmp = CO(a, a2, b, c);
 //quartetSorter.push(tmp,t);						
-size_t tmp = metaLookupTable.get_index(a,a2,b,c);
-tmp += metaLookupTable.get_tuple_index(a,a2,b,c);
-quartetSorter.push(tmp,t);	
+//size_t tmp = metaLookupTable.get_index(a,a2,b,c);
+//tmp += metaLookupTable.get_tuple_index(a,a2,b,c);
+//quartetSorter.push(tmp,t);	
 //lookupTableFast[CO(a, a2, b, c)]++;
 					}
 
@@ -287,14 +285,14 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		}
 		}
 		//}; //TIMED_BLOCK
-/*		if((i!=0) && (i%250 == 0)){
+		if((i!=0) && (i%250 == 0)){
 			end = std::chrono::steady_clock::now();
 			LOG(INFO) << "[counting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
-			//reduceSorter();
+			reduceSorter();
 			begin = std::chrono::steady_clock::now();
 
 		}
-*/		++itTree;
+		++itTree;
 		++i;
 	}
 	end = std::chrono::steady_clock::now();
@@ -305,13 +303,6 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 	LOG(INFO) << "[run_volumeWritten] [" << (stats_end - stats_begin).get_written_volume ()<< " bytes]"; 
 		
 	std::cout << (stxxl::stats_data(*Stats) - stats_begin); // print i/o statistics
-	//io_stats.close();
-        //std::ofstream outputfile;
-        //outputfile.open("output_Scores.csv");
-        //for(size_t i = 0; i < lookupTableFast.size(); i++){
-          //      outputfile << i << "," << lookupTableFast[i] << std::endl;
-        //}
-        //outputfile.close();
 }
 
 /**
@@ -327,7 +318,6 @@ quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, 
 //quartetSorter(my_comparator<size_t>(),static_cast<size_t>(1)<<32) {
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
-	lookupIdToRefId.resize(refTree.node_count());
 	nthread = num_threads;	
 	n = 0;
 	//TIMED_BLOCK(timerObj, "QuartetCounterLookup_time"){
@@ -336,12 +326,10 @@ quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, 
 		if (it.node().is_leaf()) {
 			taxonToReferenceID[it.node().data<DefaultNodeData>().name] = it.node().index();
 			refIdToLookupID[it.node().index()] = n;
-			lookupIdToRefId[n] = (size_t)it.node().index();
 			n++;
 		}
 	}
 
-	qsc = make_unique<QuartetScoreComputer<CINT>> (refTree, evalTreesPath, m, verboseOutput, savemem, num_threads, internalMemory, refIdToLookupID);
 	n_square = n * n;
 	n_cube = n_square * n;
 	// initialize the lookup table.
@@ -426,13 +414,8 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 	CINT counter_q2 = 0;
 	CINT counter_q3 = 0;
 	std::vector<uint16_t> quartet;	
-	int tupleIndex = 0;
-	uint16_t a;
-	uint16_t b;
-	uint16_t c;
-	uint16_t d;
-	
 	uint64_t tupleIndex = 0;
+
     for(;!quartetSorter.empty();++quartetSorter)
     {
 		if(tmp == *quartetSorter){
