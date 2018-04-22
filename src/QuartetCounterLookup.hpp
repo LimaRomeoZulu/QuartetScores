@@ -239,24 +239,6 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		++itTree;
 		++i;
 	}
-/*
-std::ofstream outputfile;
-outputfile.open("output_Scores.csv");
-size_t num_taxa = lookupTable.num_taxa();
-size_t const n = (num_taxa * (num_taxa - 1) * (num_taxa - 2) * (num_taxa - 3)) / 24;
-
-if(savemem){
-	for(size_t i = 0; i < n; i++){
-	outputfile << i << "," << std::to_string(lookupTable[i][0]) << "," << std::to_string(lookupTable[i][1])<< "," << std::to_string(lookupTable[i][2])<< std::endl;
-	}
-}
-else{
-	//for(size_t i = 0; i < lookupTableFast.size(); i++){
-	//outputfile << i << "," <<std::to_string(lookupTableFast[i]) << std::endl;
-	//}
-}
-outputfile.close();
-*/
 }
 
 
@@ -333,10 +315,10 @@ std::tuple<CINT, CINT, CINT> QuartetCounterLookup<CINT>::countQuartetOccurrences
 		CINT abCD = tuple[lookupTable.tuple_index(a, b, c, d)];
 		CINT acBD = tuple[lookupTable.tuple_index(a, c, b, d)];
 		CINT adBC = tuple[lookupTable.tuple_index(a, d, b, c)];
-		std::ofstream output;
-		output.open("countBuffer.csv", std::ios_base::app);
-		output << a << "," << b << "," << c << "," << d << "," << abCD << "," << acBD << "," << adBC << std::endl;
-		output.close();
+		//std::ofstream output;
+		//output.open("countBuffer.csv", std::ios_base::app);
+		//output << a << "," << b << "," << c << "," << d << "," << abCD << "," << acBD << "," << adBC << std::endl;
+		//output.close();
 		return std::tuple<CINT, CINT, CINT>(abCD, acBD, adBC);
 	} else {
 		CINT abCD = lookupQuartetCount(aIdx, bIdx, cIdx, dIdx);
