@@ -29,7 +29,7 @@ template class std::vector<size_t>;
 template <typename T>
 struct my_comparator
 {
-   bool operator () (const T& a, const T& b) const
+   bool operator () (const T a, const T b) const
    {
        return a < b;
    }
