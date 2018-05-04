@@ -134,3 +134,7 @@ add_executable( QuartetScores "src/QuartetScores.cpp" )
 target_link_libraries ( QuartetScores ${GENESIS_LINK_LIBRARIES} )
 target_link_libraries(QuartetScores ${STXXL_LIBRARIES})
 target_link_libraries(QuartetScores easyloggingpp)
+
+add_executable(test_em_counting tests/em_counting.cpp)
+target_link_libraries(test_em_counting ${STXXL_LIBRARIES})
+add_test(test_em_counting test_em_counting)
