@@ -287,7 +287,6 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 			}
 
 			if (quartetSorter.size() > max_em_elements) {
-				std::cout << "Reduce sorter" << std::endl;
 				quartetSorter.sort();
 				quartetCount.update(quartetSorter);
 				quartetSorter.clear();

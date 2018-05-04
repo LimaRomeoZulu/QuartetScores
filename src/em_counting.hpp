@@ -33,15 +33,20 @@ public:
     // before using it again
     template<typename Stream>
     void update(Stream& in) {
+        _stream.reset(nullptr);
+
         if (in.empty())
             return;
 
-        auto count_next = [&in] () -> value_type {
+        size_t in_count = 0;
+        auto count_next = [&in, &in_count] () -> value_type {
             if (in.empty()) return {Key{}, 0};
 
             auto current = *in;
             count_type count = 1;
             for(++in; !in.empty() && *in == current; ++count, ++in);
+
+            in_count += count;
 
             return {current, count};
         };
@@ -57,6 +62,8 @@ public:
         // first run:  _sequence is empty and we do not have to merge
         if (_sequence.empty()) {
             in_to_stream(_sequence);
+            std::cout << "Reduced sorter with " << in_count << " keys. "
+                         "Sequence contains " << _sequence.size() << " pairs.\n";
             return;
         }
 
@@ -91,7 +98,9 @@ public:
         // copy remainder from in
         in_to_stream(result);
 
-        _stream.reset(nullptr);
+        std::cout << "Reduced sorter with " << in_count << " keys. "
+                     "Sequence contains " << result.size() << " pairs "
+                     "(previously " << _sequence.size() << ")\n";
         _sequence.swap(result);
     }
 
