@@ -42,13 +42,15 @@ class QuartetScoreComputer {
 public:
 	QuartetScoreComputer(Tree const &refTree, const std::string &evalTreesPath, size_t m, bool verboseOutput,
 			bool enforceSmallMem, int num_threads, int internalMemory, std::vector<size_t>& refIdToLookupID);
+
 	using QuartetTuple = std::array<uint16_t, 4>;
 	using QuartetCountTuple = std::array<CINT, 3>;
+
 	std::vector<double> getLQICScores();
 	std::vector<double> getQPICScores();
 	std::vector<double> getEQPICScores();
 	void calculateQPICScores();
-	void computeQuartetScoresBifurcatingQuartets(size_t uIdx, size_t vIdx, size_t wIdx, size_t zIdx, std::vector<CINT> quartetOccurrences);
+	void computeQuartetScoresBifurcatingQuartets(size_t uIdx, size_t vIdx, size_t wIdx, size_t zIdx, QuartetCountTuple quartetOccurrences);
 	void init(size_t num_taxa);
 	size_t num_taxa() const;
 	std::vector<uint16_t> get_leaves(uint64_t q);
@@ -405,7 +407,7 @@ std::tuple<size_t, size_t, size_t, size_t> QuartetScoreComputer<CINT>::getRefere
  * Compute the LQ-IC, QP-IC, and EQP-IC scores for a bifurcating reference tree, iterating over quartets instead of node pairs.
  */
 template<typename CINT>
-void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t uIdx, size_t vIdx, size_t wIdx, size_t zIdx, std::vector<CINT> quartetOccurrences) {
+void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t uIdx, size_t vIdx, size_t wIdx, size_t zIdx, QuartetCountTuple quartetOccurrences) {
 	// Process all quartets
 	//#pragma omp parallel for schedule(dynamic)
 					// find topology ab|cd of {u,v,w,z}
@@ -500,8 +502,9 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t 
 							referenceTree.node_at(lcaFromToIdx))) {
 						if (it.is_lca())
 							continue;
+
+						size_t edge = it.edge().index();
 #pragma omp critical
-						size_t egde = it.edge().index();
 						LQICScores[edge] = std::min(LQICScores[it.edge().index()], qic);
 					}
 					std::get<0>(countBuffer[nodePairSorted]) += quartetOccurrences[tupleA];
