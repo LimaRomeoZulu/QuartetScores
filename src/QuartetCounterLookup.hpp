@@ -218,8 +218,8 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		for (auto it : eulertour(tree)) {
 			if (it.node().is_leaf()) {
 				size_t leafIdx = it.node().index();
-				int tmp = refIdToLookupID[taxonToReferenceID.at(tree.node_at(leafIdx).data<DefaultNodeData>().name)]; 
-				eulerTourLeaves.push_back(tmp);
+				eulerTourLeaves.push_back(
+						refIdToLookupID[taxonToReferenceID.at(tree.node_at(leafIdx).data<DefaultNodeData>().name)]);
 			}
 			linkToEulerLeafIndex[it.link().index()] = eulerTourLeaves.size();
 		}

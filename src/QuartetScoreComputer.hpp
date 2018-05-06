@@ -383,8 +383,6 @@ void QuartetScoreComputer<CINT>::processNodePair(size_t uIdx, size_t vIdx) {
 	p3 = 0;
 	// find metaquartet indices by {u,v}
 
-	//std::ofstream output;
-	//output.open("countBuffer.csv", std::ios_base::app);	
 
 	size_t lcaIdx = informationReferenceTree.lowestCommonAncestorIdx(uIdx, vIdx, rootIdx);
 
@@ -433,9 +431,12 @@ void QuartetScoreComputer<CINT>::processNodePair(size_t uIdx, size_t vIdx) {
 					double qic = log_score(std::get<0>(quartetOccurrences), std::get<1>(quartetOccurrences),
 							std::get<2>(quartetOccurrences));
 
+					//std::ofstream output;
+					//output.open("countBuffer.csv", std::ios_base::app);	
 					//output << uIdx << "," << vIdx << "," << aIdx << "," << bIdx << "," << cIdx << "," << dIdx << "," << std::get<0>(quartetOccurrences)
 					//<< "," << std::get<1>(quartetOccurrences) << "," << std::get<2>(quartetOccurrences) 
 					//<< "," << qic << std::endl;
+					//output.close();
 
 					// find path ends
 					size_t lca_ab = informationReferenceTree.lowestCommonAncestorIdx(aIdx, bIdx, rootIdx);
@@ -473,7 +474,6 @@ void QuartetScoreComputer<CINT>::processNodePair(size_t uIdx, size_t vIdx) {
 		dLeafIndex = startLeafIndexS4;
 	}
 
-	//output.close();
 
 	// compute the QP-IC score of the current metaquartet
 	double qpic = log_score(p1, p2, p3);
