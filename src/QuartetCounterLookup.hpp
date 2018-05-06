@@ -243,7 +243,7 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		const uint64_t max_em_elements
 	) {
 	unsigned int progress = 1;
-	const auto onePercent = m / 100.;
+	const auto onePercent = m / 200.;
 
 	utils::InputStream instream(utils::make_unique<utils::FileInputSource>(evalTreesPath));
 	auto itTree = NewickInputIterator(instream, DefaultTreeNewickReader());
@@ -286,51 +286,49 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 				}
 			}
 
-			if (quartetSorter.size() > max_em_elements) {
-				quartetSorter.sort();
-				quartetCount.update(quartetSorter);
-				quartetSorter.clear();
-			}
-
-			if (i > progress * onePercent) {
-				std::cout << "Counting quartets... " << progress << "%" << std::endl;
-				progress++;
-			}
+		if (i > progress * onePercent) {
+			std::cout << "Counting quartets... " << progress << "%" << std::endl;
+			progress++;
 		}
-
-		//}; //TIMED_BLOCK
-/*		if((i!=0) && (i%250 == 0)){
-			end = std::chrono::steady_clock::now();
-			LOG(INFO) << "[counting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
-			//reduceSorter();
-			begin = std::chrono::steady_clock::now();
-
-		}
-*/		++itTree;
+	}
+	if (quartetSorter.size() > max_em_elements) {
+		end = std::chrono::steady_clock::now();
+		LOG(INFO) << "[counting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
+		begin = std::chrono::steady_clock::now();
+		quartetSorter.sort();
+		end = std::chrono::steady_clock::now();
+		LOG(INFO) << "[sorting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
+		begin = std::chrono::steady_clock::now();
+		quartetCount.update(quartetSorter);
+		quartetSorter.clear();
+		end = std::chrono::steady_clock::now();
+		LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
+		begin = std::chrono::steady_clock::now();
+	}
+		
+		++itTree;
 		++i;
 	}
 
 	if (quartetSorter.size()) {
+		end = std::chrono::steady_clock::now();
+		LOG(INFO) << "[counting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
+		begin = std::chrono::steady_clock::now();
 		quartetSorter.sort();
+		end = std::chrono::steady_clock::now();
+		LOG(INFO) << "[sorting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
+		begin = std::chrono::steady_clock::now();
 		quartetCount.update(quartetSorter);
 		quartetSorter.clear();
+		end = std::chrono::steady_clock::now();
+		LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
 	}
 
-	end = std::chrono::steady_clock::now();
-	LOG(INFO) << "[counting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
 	reduceSorter();
 	
 	stxxl::stats_data stats_end(*Stats);
 	LOG(INFO) << "[run_volumeWritten] [" << (stats_end - stats_begin).get_written_volume ()<< " bytes]"; 
-		
 	std::cout << (stxxl::stats_data(*Stats) - stats_begin); // print i/o statistics
-	//io_stats.close();
-        //std::ofstream outputfile;
-        //outputfile.open("output_Scores.csv");
-        //for(size_t i = 0; i < lookupTableFast.size(); i++){
-          //      outputfile << i << "," << lookupTableFast[i] << std::endl;
-        //}
-        //outputfile.close();
 }
 
 /**
@@ -428,10 +426,10 @@ template<typename CINT>
 void QuartetCounterLookup<CINT>::reduceSorter() {
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 	std::chrono::steady_clock::time_point end;	
-	quartetSorter.sort();
-	end = std::chrono::steady_clock::now();
-	LOG(INFO) << "[sorting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
-	begin = std::chrono::steady_clock::now();
+	//quartetSorter.sort();
+	//end = std::chrono::steady_clock::now();
+	//LOG(INFO) << "[sorting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
+	//begin = std::chrono::steady_clock::now();
 
 
 	constexpr uint64_t MASK_TUPLE_INDEX = 0x3;
@@ -444,19 +442,8 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 		const auto c = lookupIdToRefId[quartet[2]];
 		const auto d = lookupIdToRefId[quartet[3]];
 
-		//Experiment 6: Time profile
-		end = std::chrono::steady_clock::now();
-		LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
-		begin = std::chrono::steady_clock::now();
-		//END Experiment 6: Time profile
 		qsc->computeQuartetScoresBifurcatingQuartets(a,b,c,d,q123);
-		//Experiment 6: Time profile
-		end = std::chrono::steady_clock::now();
-		LOG(INFO) << "[computingScores_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
-		begin = std::chrono::steady_clock::now();
-		//END Experiment 6: Time profile
-		size_t tuple = lookupTable.get_index(quartet[0], quartet[1], quartet[2], quartet[3]);
-		//output << tuple << "," << counter_q1 << "," << counter_q2 << "," << counter_q3 << std::endl;
+		//size_t tuple = lookupTable.get_index(quartet[0], quartet[1], quartet[2], quartet[3]);
 	};
 
 	quartetCount.rewind();
@@ -488,7 +475,7 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 
 
 	qsc->calculateQPICScores();
-	quartetSorter.clear();
+	//quartetSorter.clear();
 	end = std::chrono::steady_clock::now();
-	LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
+	LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
 }
