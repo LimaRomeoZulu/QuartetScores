@@ -41,13 +41,13 @@ def experiment2():
 	f.write("[run_thread] [8 threads]\n")
 	f.write("[run_internal] [1 fastLookup]\n")
 	f.close()
-	os.system("../../QuartetScores/bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp2/exp2_t8_int_"+timestamp+".tre -t 8")
+	os.system("../../QuartetScores/bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp2/exp2_t8_fast_"+timestamp+".tre -t 8")
 
 	f = open("logs/exp2/" + filename, "a")
 	f.write("[run_thread] [8 threads]\n")
 	f.write("[run_internal] [2 saveMem]\n")
 	f.close()
-	os.system("../../QuartetScores/bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp2/exp2_t8_int_"+timestamp+".tre -t 8 -s")
+	os.system("../../QuartetScores/bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp2/exp2_t8_save_"+timestamp+".tre -t 8 -s")
 
 	f = open("logs/exp2/" + filename, "a")
 	f.write("[run_thread] [8 threads]\n")
