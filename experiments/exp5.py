@@ -3,8 +3,8 @@ import config
 import time
 
 ################ Experiment 5 #########################
-#This experiment compares the time of the internal algorithm with the external algorithm for 500 taxa
-#500 taxa will result in an non-optimized lookup table of 125GB
+#This experiment compares the time of the internal algorithm with the external algorithm for 450 taxa
+#450 taxa will result in an non-optimized lookup table of 82GB
 #the experiment is conducted with an available RAM space of 64GB
 #
 def experiment5():
@@ -27,12 +27,12 @@ def experiment5():
         f.close() 
 
 	##### Setting the parameters #####
-	referenceTree = "data/reference_500.tre"
-	evaluationTree = "data/geneTrees_500.tre"
+	referenceTree = "data/reference_450.tre"
+	evaluationTree = "data/geneTrees_450.tre"
 	internalMemory = "35"
 	f = open("logs/exp5/" + filename, "w")
-	f.write("#This experiment compares the time of the internal algorithm with the external algorithm for 500 taxa\n"
-		"500 taxa will result in an non-optimized lookup table of 125GB\n"
+	f.write("#This experiment compares the time of the internal algorithm with the external algorithm for 450 taxa\n"
+		"450 taxa will result in an non-optimized lookup table of 82GB\n"
 		"the experiment is conducted with an available RAM space of 64GB\n")
 	f.write("ReferenceTree: "+referenceTree+"\n") 	
 	f.write("EvaluationTree: "+evaluationTree+"\n")
