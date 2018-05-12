@@ -29,7 +29,7 @@ def experiment2():
 	##### Setting the parameters #####
 	referenceTree = "data/reference_300.tre"
 	evaluationTree = "data/geneTrees_300.tre"
-	internalMemory = "33"
+	internalMemory = "32"
 	f = open("logs/exp2/" + filename, "w")
 	f.write("#This experiment compares the time of the internal algorithm with the external algorithm for 300 taxa\n"
 		"300 taxa will result in an non-optimized lookup table of 16GB\n"
