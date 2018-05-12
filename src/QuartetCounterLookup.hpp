@@ -84,10 +84,9 @@ private:
 	std::vector<size_t> refIdToLookupID;
 	std::vector<size_t> lookupIdToRefId;
 	bool savemem; /**> trade speed for less memory or not */
-	void reduceSorter();
 	stxxl::parallel_sorter_synchron<uint64_t, my_comparator<uint64_t> > quartetSorter;
 	em_counting<uint64_t, CINT> quartetCount;
-
+	void reduceSorter();
 	int nthread;
 };
 
@@ -324,7 +323,6 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
 	}
 
-	reduceSorter();
 	
 	stxxl::stats_data stats_end(*Stats);
 	LOG(INFO) << "[run_volumeWritten] [" << (stats_end - stats_begin).get_written_volume ()<< " bytes]"; 
@@ -359,21 +357,18 @@ quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, 
 	}
 
 	qsc = make_unique<QuartetScoreComputer<CINT>> (refTree, evalTreesPath, m, verboseOutput, savemem, num_threads, internalMemory, refIdToLookupID);
-	n_square = n * n;
-	n_cube = n_square * n;
-	// initialize the lookup table.
-	if (savemem) {
-		lookupTable.init(n);
-	} else {
-		//lookupTableFast.resize(n * n * n * n);
-		qsc->init(n);
-	}
 	countQuartets(evalTreesPath, m, taxonToReferenceID);
-	if (savemem) {
-		std::cout << "lookup table size in bytes: " << lookupTable.size() << "\n";
-	} else {
-		std::cout << "lookup table size in bytes: " << lookupTableFast.size() * sizeof(CINT) << "\n";
-	}
+	qsc->initScores();
+	reduceSorter();
+	//std::tuple <size_t,size_t,size_t,size_t,std::array<CINT,3>,IT> result;
+	//auto& quartetCountIterator = *quartetCount;
+		
+	//while(!quartetCount.empty()){
+
+		//result = reduceSorter(quartetCountIterator);
+		//quartetCountIterator = std::get<5>(result);
+		//qsc->computeQuartetScoresBifurcatingQuartets(std::get<0>(result), std::get<1>(result), std::get<2>(result), std::get<3>(result), std::get<4>(result));
+	//}
 	//};//TIMED_BLOCK
 }
 
@@ -425,17 +420,12 @@ std::tuple<CINT, CINT, CINT> QuartetCounterLookup<CINT>::countQuartetOccurrences
 template<typename CINT>
 void QuartetCounterLookup<CINT>::reduceSorter() {
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-	std::chrono::steady_clock::time_point end;	
-	//quartetSorter.sort();
-	//end = std::chrono::steady_clock::now();
-	//LOG(INFO) << "[sorting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
-	//begin = std::chrono::steady_clock::now();
-
+	std::chrono::steady_clock::time_point end;
 
 	constexpr uint64_t MASK_TUPLE_INDEX = 0x3;
 	constexpr uint64_t MASK_QUARTET_INDEX = ~MASK_TUPLE_INDEX;
 
-	auto commit = [&begin, &end, this] (size_t qi, const std::array<CINT, 3>& q123)  {
+	auto commit = [this] (size_t qi, const std::array<CINT, 3> q123)  {
 		const auto quartet = qsc->get_leaves(qi);
 		const auto a = lookupIdToRefId[quartet[0]];
 		const auto b = lookupIdToRefId[quartet[1]];
@@ -452,10 +442,17 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 		abort();
 	}
 
+#pragma omp parallel num_threads(nthread)
+{
+	#pragma omp single
+	{
 	std::array<CINT, 3> q123;
+	q123.fill(0);
 	size_t last_qi = (*quartetCount).first & MASK_QUARTET_INDEX;
+
 	for(; !quartetCount.empty(); ++quartetCount) {
 		const auto& item = *quartetCount;
+		//const auto item = begin;
 
 		const auto qi = item.first & MASK_QUARTET_INDEX;
 		const auto ti = item.first & MASK_TUPLE_INDEX;
@@ -463,19 +460,22 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 		if (qi == last_qi) {
 			assert(ti < 4);
 		} else {
+			#pragma omp task
 			commit(last_qi, q123);
-			q123.fill(0);
 			last_qi = qi;
+			q123.fill(0);
 		}
 
 		q123[ti] = item.second;
 	}
-
 	commit(last_qi, q123);
+	#pragma omp taskwait
+	}
+}
 
 
 	qsc->calculateQPICScores();
 	//quartetSorter.clear();
 	end = std::chrono::steady_clock::now();
-	LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
+	LOG(INFO) << "[computing_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
 }

@@ -51,7 +51,7 @@ public:
 	std::vector<double> getEQPICScores();
 	void calculateQPICScores();
 	void computeQuartetScoresBifurcatingQuartets(size_t uIdx, size_t vIdx, size_t wIdx, size_t zIdx, QuartetCountTuple quartetOccurrences);
-	void init(size_t num_taxa);
+	void initScores();
 	size_t num_taxa() const;
 	std::vector<uint16_t> get_leaves(uint64_t q);
 	std::vector<size_t> refIdToLookupId;
@@ -91,9 +91,23 @@ private:
 };
 
 template<typename CINT>
-void QuartetScoreComputer<CINT>::init(size_t num_taxa) {
-	num_taxa_ = num_taxa;
-	// init_binom_lookup_(num_taxa);
+void QuartetScoreComputer<CINT>::initScores() {
+
+	if (!is_bifurcating(referenceTree)) {
+		std::cout << "The reference tree is multifurcating.\n";
+		LQICScores.resize(referenceTree.edge_count());
+		std::fill(LQICScores.begin(), LQICScores.end(), std::numeric_limits<double>::infinity());
+		// compute only LQ-IC scores
+	} else {
+		std::cout << "The reference tree is bifurcating.\n";
+		LQICScores.resize(referenceTree.edge_count());
+		QPICScores.resize(referenceTree.edge_count());
+		EQPICScores.resize(referenceTree.edge_count());
+		// initialize the LQ-IC, QP-IC and EQP-IC scores of all internodes (edges) to INFINITY
+		std::fill(LQICScores.begin(), LQICScores.end(), std::numeric_limits<double>::infinity());
+		std::fill(QPICScores.begin(), QPICScores.end(), std::numeric_limits<double>::infinity());
+		std::fill(EQPICScores.begin(), EQPICScores.end(), std::numeric_limits<double>::infinity());
+	}
 }
 
 template<typename CINT>
@@ -455,10 +469,6 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t 
 					std::pair<size_t, size_t> nodePairSorted = std::pair<size_t, size_t>(
 							std::min(nodePair.first, nodePair.second), std::max(nodePair.first, nodePair.second));
 
-					if (countBuffer.find(nodePairSorted) == countBuffer.end()) {
-						std::tuple<size_t, size_t, size_t> emptyTuple(0, 0, 0);
-						countBuffer[nodePairSorted] = emptyTuple;
-					}
 					std::tuple<size_t,size_t,size_t,size_t> quartet = getReferenceOrder(nodePairSorted.first, nodePairSorted.second, aIdx, bIdx, cIdx, dIdx); 
 					aIdx = std::get<0>(quartet);
 					bIdx = std::get<1>(quartet);
@@ -507,11 +517,18 @@ void QuartetScoreComputer<CINT>::computeQuartetScoresBifurcatingQuartets(size_t 
 #pragma omp critical
 						LQICScores[edge] = std::min(LQICScores[it.edge().index()], qic);
 					}
+					
+#pragma omp critical
+{
+					if (countBuffer.find(nodePairSorted) == countBuffer.end()) {
+						std::tuple<size_t, size_t, size_t> emptyTuple(0, 0, 0);
+						countBuffer[nodePairSorted] = emptyTuple;
+					}
 					std::get<0>(countBuffer[nodePairSorted]) += quartetOccurrences[tupleA];
 					std::get<1>(countBuffer[nodePairSorted]) += quartetOccurrences[tupleB];
 					std::get<2>(countBuffer[nodePairSorted]) += quartetOccurrences[tupleC];
 					 //***** Code for QP-IC and EQP-IC scores end
-
+}
 
 }
 
@@ -791,15 +808,15 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 		}
 		linkToEulerLeafIndex[it.link().index()] = eulerTourLeaves.size();
 	}
-	size_t n = eulerTourLeaves.size();
+	num_taxa_ = eulerTourLeaves.size();
 	refIdToLookupId = refIdToLookupID;
 
 	std::cout << "Finished precomputing subtree informations in reference tree.\n";
-	std::cout << "The reference tree has " << n << " taxa.\n";
+	std::cout << "The reference tree has " << num_taxa_ << " taxa.\n";
 
 	//estimate memory requirements
-	size_t memoryLookupFast = n * n * n * n * sizeof(CINT);
-	size_t memoryLookup = (n * (n - 1) * (n - 2) * (n - 3) / 24) * 3 * sizeof(CINT) + sizeof(size_t);
+	size_t memoryLookupFast = num_taxa_ * num_taxa_ * num_taxa_ * num_taxa_ * sizeof(CINT);
+	size_t memoryLookup = (num_taxa_ * (num_taxa_ - 1) * (num_taxa_ - 2) * (num_taxa_ - 3) / 24) * 3 * sizeof(CINT) + sizeof(size_t);
 	size_t estimatedMemory = getTotalSystemMemory();
 
 	std::cout << "Estimated memory usages (in bytes):" << std::endl;
@@ -807,43 +824,8 @@ QuartetScoreComputer<CINT>::QuartetScoreComputer(Tree const &refTree, const std:
 	std::cout << "  Memory-efficient Lookup table: " << memoryLookup << std::endl;
 	std::cout << "  Estimated available memory: " << estimatedMemory << std::endl;
 
-	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-
 	if (memoryLookup > estimatedMemory) {
 		throw std::runtime_error("Insufficient memory!");
 	}
 
-	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-
-	std::cout << "Finished counting quartets.\n";
-	LOG(INFO) << "[countingQuartets_time] {" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
-
-	begin = std::chrono::steady_clock::now();
-
-	// precompute taxon ID mappings
-	// this is commented out as it was not needed anywhere in the code.
-	//taxonMapper = make_unique<TaxonMapper>(referenceTree, evaluationTrees, eulerTourLeaves);
-	//std::cout << "Finished precomputing taxon ID mappings.\n";
-
-	if (!is_bifurcating(refTree)) {
-		std::cout << "The reference tree is multifurcating.\n";
-		LQICScores.resize(referenceTree.edge_count());
-		std::fill(LQICScores.begin(), LQICScores.end(), std::numeric_limits<double>::infinity());
-		// compute only LQ-IC scores
-		//computeQuartetScoresMultifurcating();
-	} else {
-		std::cout << "The reference tree is bifurcating.\n";
-		LQICScores.resize(referenceTree.edge_count());
-		QPICScores.resize(referenceTree.edge_count());
-		EQPICScores.resize(referenceTree.edge_count());
-		// initialize the LQ-IC, QP-IC and EQP-IC scores of all internodes (edges) to INFINITY
-		std::fill(LQICScores.begin(), LQICScores.end(), std::numeric_limits<double>::infinity());
-		std::fill(QPICScores.begin(), QPICScores.end(), std::numeric_limits<double>::infinity());
-		std::fill(EQPICScores.begin(), EQPICScores.end(), std::numeric_limits<double>::infinity());
-	}
-
-	end = std::chrono::steady_clock::now();
-
-	std::cout << "Finished computing scores.\n";
-	LOG(INFO) << "[computingScores_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
 }
