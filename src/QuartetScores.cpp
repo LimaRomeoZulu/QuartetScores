@@ -172,7 +172,7 @@ int main(int argc, char* argv[]) {
 	writer.to_file(referenceTree, outputFilePath);
 	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
-	LOG(INFO) << "[total_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " ms]";
+	LOG(INFO) << "[total_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
 
 	return 0;
 }

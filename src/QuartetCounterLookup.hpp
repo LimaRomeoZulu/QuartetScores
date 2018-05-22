@@ -425,6 +425,8 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 	constexpr uint64_t MASK_TUPLE_INDEX = 0x3;
 	constexpr uint64_t MASK_QUARTET_INDEX = ~MASK_TUPLE_INDEX;
 
+	uint64_t totalNumberTaxaCounts = 0;
+	
 	auto commit = [this] (size_t qi, const std::array<CINT, 3> q123)  {
 		const auto quartet = qsc->get_leaves(qi);
 		const auto a = lookupIdToRefId[quartet[0]];
@@ -467,6 +469,7 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 		}
 
 		q123[ti] = item.second;
+		totalNumberTaxaCounts += item.second;
 	}
 	commit(last_qi, q123);
 	#pragma omp taskwait
@@ -478,4 +481,5 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 	//quartetSorter.clear();
 	end = std::chrono::steady_clock::now();
 	LOG(INFO) << "[computing_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
+	LOG(INFO) << "[run_totalNumberTaxaCounts] [" << totalNumberTaxaCounts << " counts]";
 }
