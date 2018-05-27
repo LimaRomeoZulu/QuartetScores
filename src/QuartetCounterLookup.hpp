@@ -367,7 +367,7 @@ QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std:
 	n = 0;
 	if(2<=(num_threads/2)){
 		for(short i =0; i < num_threads; i+2){
-			sorter_type q_sorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<< static_cast<int>((internalMemory-floor(num_threads/4))), 2);
+			sorter_type q_sorter(my_comparator<uint64_t>(),std::pow(2,internalMemory)/(nthread/2), 2);
 			quartetSorter.push_back(q_sorter);
 		}
 	}
