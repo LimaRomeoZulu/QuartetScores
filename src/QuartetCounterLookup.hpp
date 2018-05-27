@@ -53,6 +53,8 @@ struct my_comparator
  */
 template<typename CINT>
 class QuartetCounterLookup {
+private:
+	using sorter_type = stxxl::parallel_sorter_synchron<uint64_t, my_comparator<uint64_t> >; 
 public:
 	QuartetCounterLookup(const Tree &refTree, const std::string &evalTreesPath, size_t m, bool verboseOutput, bool savemem, int num_threads, int internalMemory);
 	~QuartetCounterLookup() = default;
@@ -64,12 +66,12 @@ private:
 			const uint64_t max_em_elements = 1llu << 34
 	);
 	void updateQuartets(const Tree &tree, size_t nodeIdx, const std::vector<int> &eulerTourLeaves,
-			const std::vector<int> &linkToEulerLeafIndex, int t);
+			const std::vector<int> &linkToEulerLeafIndex, int t1, int t2);
 	void updateQuartetsThreeLinks(size_t link1, size_t link2, size_t link3, const Tree &tree,
-			const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex, int t);
+			const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex, int t1, int t2);
 	void updateQuartetsThreeClades(size_t startLeafIndexS1, size_t endLeafIndexS1, size_t startLeafIndexS2,
 			size_t endLeafIndexS2, size_t startLeafIndexS3, size_t endLeafIndexS3,
-			const std::vector<int> &eulerTourLeaves, int t);
+			const std::vector<int> &eulerTourLeaves, int t1, int t2);
 	std::pair<size_t, size_t> subtreeLeafIndices(size_t linkIdx, const Tree &tree,
 			const std::vector<int> &linkToEulerLeafIndex);
 
@@ -84,7 +86,7 @@ private:
 	std::vector<size_t> refIdToLookupID;
 	std::vector<size_t> lookupIdToRefId;
 	bool savemem; /**> trade speed for less memory or not */
-	stxxl::parallel_sorter_synchron<uint64_t, my_comparator<uint64_t> > quartetSorter;
+	std::vector<sorter_type> quartetSorter;
 	em_counting<uint64_t, CINT> quartetCount;
 	void reduceSorter();
 	int nthread;
@@ -103,7 +105,7 @@ private:
 template<typename CINT>
 void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndexS1, size_t endLeafIndexS1,
 		size_t startLeafIndexS2, size_t endLeafIndexS2, size_t startLeafIndexS3, size_t endLeafIndexS3,
-		const std::vector<int> &eulerTourLeaves, int t) {
+		const std::vector<int> &eulerTourLeaves, int t1, int t2) {
 	size_t aLeafIndex = startLeafIndexS1;
 	size_t bLeafIndex = startLeafIndexS2;
 	size_t cLeafIndex = startLeafIndexS3;
@@ -129,7 +131,7 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeClades(size_t startLeafIndex
 //size_t tmp = CO(a, a2, b, c);
 //quartetSorter.push(tmp,t);						
 uint64_t tmp = qsc->get_index(a,a2,b,c);
-quartetSorter.push(tmp,t);	
+quartetSorter[t1].push(tmp,t2);	
 //lookupTableFast[CO(a, a2, b, c)]++;
 					}
 
@@ -176,7 +178,7 @@ std::pair<size_t, size_t> QuartetCounterLookup<CINT>::subtreeLeafIndices(size_t 
  */
 template<typename CINT>
 void QuartetCounterLookup<CINT>::updateQuartetsThreeLinks(size_t link1, size_t link2, size_t link3, const Tree &tree,
-		const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex, int t) {
+		const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex, int t1, int t2) {
 	std::pair<size_t, size_t> subtree1 = subtreeLeafIndices(link1, tree, linkToEulerLeafIndex);
 	std::pair<size_t, size_t> subtree2 = subtreeLeafIndices(link2, tree, linkToEulerLeafIndex);
 	std::pair<size_t, size_t> subtree3 = subtreeLeafIndices(link3, tree, linkToEulerLeafIndex);
@@ -189,11 +191,11 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeLinks(size_t link1, size_t l
 	size_t endLeafIndexS3 = subtree3.second % eulerTourLeaves.size();
 
 	updateQuartetsThreeClades(startLeafIndexS1, endLeafIndexS1, startLeafIndexS2, endLeafIndexS2, startLeafIndexS3,
-			endLeafIndexS3, eulerTourLeaves, t);
+			endLeafIndexS3, eulerTourLeaves, t1, t2);
 	updateQuartetsThreeClades(startLeafIndexS2, endLeafIndexS2, startLeafIndexS1, endLeafIndexS1, startLeafIndexS3,
-			endLeafIndexS3, eulerTourLeaves, t);
+			endLeafIndexS3, eulerTourLeaves, t1, t2);
 	updateQuartetsThreeClades(startLeafIndexS3, endLeafIndexS3, startLeafIndexS1, endLeafIndexS1, startLeafIndexS2,
-			endLeafIndexS2, eulerTourLeaves, t);
+			endLeafIndexS2, eulerTourLeaves, t1, t2);
 }
 
 /**
@@ -208,7 +210,7 @@ void QuartetCounterLookup<CINT>::updateQuartetsThreeLinks(size_t link1, size_t l
  */
 template<typename CINT>
 void QuartetCounterLookup<CINT>::updateQuartets(const Tree &tree, size_t nodeIdx,
-		const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex, int t) {
+		const std::vector<int> &eulerTourLeaves, const std::vector<int> &linkToEulerLeafIndex, int t1, int t2) {
 	// get taxa from subtree clades at nodeIdx
 	std::vector<size_t> subtreeLinkIndices;
 	const TreeLink* actLinkPtr = &tree.node_at(nodeIdx).link();
@@ -224,7 +226,7 @@ void QuartetCounterLookup<CINT>::updateQuartets(const Tree &tree, size_t nodeIdx
 				size_t link1 = subtreeLinkIndices[i];
 				size_t link2 = subtreeLinkIndices[j];
 				size_t link3 = subtreeLinkIndices[k];
-				updateQuartetsThreeLinks(link1, link2, link3, tree, eulerTourLeaves, linkToEulerLeafIndex, t);
+				updateQuartetsThreeLinks(link1, link2, link3, tree, eulerTourLeaves, linkToEulerLeafIndex, t1, t2);
 			}
 		}
 	}
@@ -242,23 +244,30 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 		const uint64_t max_em_elements
 	) {
 	unsigned int progress = 1;
-	const auto onePercent = m / 200.;
+	const auto onePercent = m / 200;
 
 	utils::InputStream instream(utils::make_unique<utils::FileInputSource>(evalTreesPath));
-	auto itTree = NewickInputIterator(instream, DefaultTreeNewickReader());
+//	auto itTree = NewickInputIterator(instream, DefaultTreeNewickReader());
 	size_t i = 0;
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 	std::chrono::steady_clock::time_point end;	
 
 
-	stxxl::stats* Stats = stxxl::stats::get_instance();
-	
-	stxxl::stats_data stats_begin(*Stats);
+	short thread = 0;
+	if(2<=(nthread/2)) thread = floor(nthread/2);
+	else thread = nthread; 
 
-	while (itTree) { // iterate over the set of evaluation trees
-		//TIMED_BLOCK(timerObj, "while(itTree)_time"){
-		
-		Tree const& tree = *itTree;
+#pragma omp parallel num_threads(thread)     
+#pragma omp single
+	{                   
+		stxxl::stats* Stats = stxxl::stats::get_instance();
+		stxxl::stats_data stats_begin(*Stats);
+	for(auto itTree = NewickInputIterator(instream, DefaultTreeNewickReader()); itTree; ++itTree) { // iterate over the set of evaluation trees
+		auto tree = *itTree;
+		#pragma omp task firstprivate(tree)
+		{		
+        	int tid1 = omp_get_thread_num();
+		std::cout << "tid1: " << tid1 << std::endl;
 
 		size_t nEval = tree.node_count();
 
@@ -274,14 +283,18 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 			}
 			linkToEulerLeafIndex[it.link().index()] = eulerTourLeaves.size();
 		}
+	short thread = 0;
+	if(2<=(nthread/2)) thread = 2;
+	else thread = 1; 
 			
 #pragma omp parallel num_threads(nthread)	
-	  {			
-	       int tid = omp_get_thread_num();
+	 {			
+	 	int tid2 = omp_get_thread_num();
+		std::cout << "tid2: " << tid2 <<std::endl;
 #pragma omp for schedule(dynamic)
 			for (size_t j = 0; j < nEval; ++j) {
 				if (!tree.node_at(j).is_leaf()) {
-					updateQuartets(tree, j, eulerTourLeaves, linkToEulerLeafIndex, tid);
+					updateQuartets(tree, j, eulerTourLeaves, linkToEulerLeafIndex, tid1, tid2);
 				}
 			}
 
@@ -289,44 +302,51 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 			std::cout << "Counting quartets... " << progress << "%" << std::endl;
 			progress++;
 		}
-	}
-	if (quartetSorter.size() > max_em_elements) {
+	}//end parallel leaves
+	if (quartetSorter[tid1].size() > max_em_elements/nthread*2) {
 		end = std::chrono::steady_clock::now();
 		LOG(INFO) << "[counting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
 		begin = std::chrono::steady_clock::now();
-		quartetSorter.sort();
+		quartetSorter[tid1].sort();
 		end = std::chrono::steady_clock::now();
 		LOG(INFO) << "[sorting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
-		begin = std::chrono::steady_clock::now();
-		quartetCount.update(quartetSorter);
-		quartetSorter.clear();
-		end = std::chrono::steady_clock::now();
-		LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
-		begin = std::chrono::steady_clock::now();
+		#pragma omp critical
+		{	
+			begin = std::chrono::steady_clock::now();
+			quartetCount.update(quartetSorter[tid1]);
+			quartetSorter[tid1].clear();
+			end = std::chrono::steady_clock::now();
+			LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
+			begin = std::chrono::steady_clock::now();
+		}
 	}
-		
-		++itTree;
 		++i;
-	}
-
-	if (quartetSorter.size()) {
+	}//pragma omp task
+#pragma omp taskwait
+	}//end parallel treeLoop		
+		//++itTree;
+	/*if (quartetSorter[tid1].size()) {
 		end = std::chrono::steady_clock::now();
 		LOG(INFO) << "[counting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
 		begin = std::chrono::steady_clock::now();
-		quartetSorter.sort();
+		quartetSorter[tid1].sort();
 		end = std::chrono::steady_clock::now();
 		LOG(INFO) << "[sorting_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
-		begin = std::chrono::steady_clock::now();
-		quartetCount.update(quartetSorter);
-		quartetSorter.clear();
-		end = std::chrono::steady_clock::now();
-		LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
+		#pragma omp critical
+		{
+			begin = std::chrono::steady_clock::now();
+			quartetCount.update(quartetSorter[tid1]);
+			quartetSorter[tid1].clear();
+			end = std::chrono::steady_clock::now();
+			LOG(INFO) << "[readingSorter_time] [" << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()<< " µs]";
+		}
 	}
-
-	
+	*/
 	stxxl::stats_data stats_end(*Stats);
 	LOG(INFO) << "[run_volumeWritten] [" << (stats_end - stats_begin).get_written_volume ()<< " bytes]"; 
 	std::cout << (stxxl::stats_data(*Stats) - stats_begin); // print i/o statistics
+	}//end parallel region
+	
 }
 
 /**
@@ -337,14 +357,24 @@ void QuartetCounterLookup<CINT>::countQuartets(const std::string &evalTreesPath,
 template<typename CINT>
 QuartetCounterLookup<CINT>::QuartetCounterLookup(Tree const &refTree, const std::string &evalTreesPath, size_t m, bool verboseOutput,
 		bool savemem,int num_threads, int internalMemory) :
-		savemem(savemem),
-quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, num_threads) {
+		savemem(savemem){
+//quartetSorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, num_threads) {
 //quartetSorter(my_comparator<size_t>(),static_cast<size_t>(1)<<32) {
 	std::unordered_map<std::string, size_t> taxonToReferenceID;
 	refIdToLookupID.resize(refTree.node_count());
 	lookupIdToRefId.resize(refTree.node_count());
 	nthread = num_threads;	
 	n = 0;
+	if(2<=(num_threads/2)){
+		for(short i =0; i < num_threads; i+2){
+			sorter_type q_sorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<< static_cast<int>((internalMemory-floor(num_threads/4))), 2);
+			quartetSorter.push_back(q_sorter);
+		}
+	}
+	else{
+		sorter_type q_sorter(my_comparator<uint64_t>(),static_cast<size_t>(1)<<internalMemory, num_threads);
+		quartetSorter.push_back(q_sorter);
+	}
 	//TIMED_BLOCK(timerObj, "QuartetCounterLookup_time"){
 
 	for (auto it : eulertour(refTree)) {

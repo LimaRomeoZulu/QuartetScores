@@ -40,7 +40,7 @@ project ( QuartetScores CXX )
 # --------------------------------------------------------------------------------------------------
 
 set (CMAKE_BUILD_TYPE RELEASE)
-set( EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin_directCalc )
+set( EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin_treeLoop )
 
 # By default, we build a fully static version. This works with GCC, but might cause trouble with
 # Clang, so we offer this option, which disables statical linking of system libraries.
