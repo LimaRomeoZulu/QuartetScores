@@ -426,13 +426,20 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 	constexpr uint64_t MASK_QUARTET_INDEX = ~MASK_TUPLE_INDEX;
 
 	uint64_t totalNumberTaxaCounts = 0;
+
+	std::ofstream output;
+	output.open("countBuffer.csv", std::ios_base::app);	
 	
-	auto commit = [this] (size_t qi, const std::array<CINT, 3> q123)  {
+	auto commit = [this, &output] (size_t qi, const std::array<CINT, 3> q123)  {
 		const auto quartet = qsc->get_leaves(qi);
 		const auto a = lookupIdToRefId[quartet[0]];
 		const auto b = lookupIdToRefId[quartet[1]];
 		const auto c = lookupIdToRefId[quartet[2]];
 		const auto d = lookupIdToRefId[quartet[3]];
+		
+		output << a << "," << b << "," << c << "," << d << "," << q123[0]
+		<< "," << q123[1] << "," << q123[2] 
+		<< "," << std::endl;
 
 		qsc->computeQuartetScoresBifurcatingQuartets(a,b,c,d,q123);
 		//size_t tuple = lookupTable.get_index(quartet[0], quartet[1], quartet[2], quartet[3]);
@@ -451,6 +458,7 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 	std::array<CINT, 3> q123;
 	q123.fill(0);
 	size_t last_qi = (*quartetCount).first & MASK_QUARTET_INDEX;
+
 
 	for(; !quartetCount.empty(); ++quartetCount) {
 		const auto& item = *quartetCount;
@@ -476,6 +484,7 @@ void QuartetCounterLookup<CINT>::reduceSorter() {
 	}
 }
 
+	output.close();
 
 	qsc->calculateQPICScores();
 	//quartetSorter.clear();

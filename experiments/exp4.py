@@ -17,8 +17,8 @@ def experiment4():
         f.close() 
 
 	##### Setting the parameters #####
-	referenceTree = "data/reference_200.tre"
-	evaluationTree = "data/geneTrees_200.tre"
+	referenceTree = "data/A6_reference_95.tre"
+	evaluationTree = "data/A6_gene_95.tre"
 	internalMemory = "33"
 	f = open("logs/exp4/" + filename, "w")
 	f.write("This experiment compares the processing time of a generated tree with 200 taxa"
@@ -28,28 +28,18 @@ def experiment4():
 
 	##### Executing the experiment #####
 	f.write("[run_thread] [8 threads]\n")
-	f.write("[run_memory] ["+ str(2**int(internalMemory)) +" bytes]\n")
 	f.write("[run_dataset] [0 generated]\n")
 	f.close()
-	for i in range(0,10):
-		f = open("logs/exp4/" + filename, "a")
-		f.write("[run_loop] ["+ str(i) +" iteration]")
-		f.close()
-		os.system("../bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp4/exp4_t8_gen_"+timestamp+"_"+ str(i) +".tre -t 8 -i "+internalMemory)
+	os.system("../../QuartetScores/bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp4/exp4_t8_gen_"+timestamp+".tre -t 8")
 
-	referenceTree = "data/A7.RAxML.ASTRAL.tre"
-	evaluationTree = "data/A7_evaluation.tre"
+	referenceTree = "data/A8.RAxML.ASTRAL.tre"
+	evaluationTree = "data/A8_evaluation.tre"
 
 	f = open("logs/exp4/" + filename, "a")
 	f.write("ReferenceTree: "+referenceTree+"\n") 	
 	f.write("EvaluationTree: "+evaluationTree+"\n")
 
 	f.write("[run_thread] [8 threads]\n")
-	f.write("[run_memory] ["+ str(2**int(internalMemory)) +" bytes]\n")
 	f.write("[run_dataset] [1 real]\n")
 	f.close()
-	for i in range(0,10):
-		f = open("logs/exp4/" + filename, "a")
-		f.write("[run_loop] ["+ str(i) +" iteration]")
-		f.close()
-		os.system("../bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp4/exp4_t8_real_"+timestamp+"_"+str(i)+".tre -t 8 -i "+internalMemory)
+	os.system("../../QuartetScores/bin/./QuartetScores -r "+referenceTree+" -e "+evaluationTree+" -o logs/exp4/exp4_t8_real_"+timestamp+".tre -t 8")
